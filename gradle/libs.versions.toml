@@ -1,0 +1,54 @@
+[versions]
+# Kotlin & KSP must match exactly on the version-prefix (KSP coords: <kotlin>-<ksp-release>)
+kotlin = "2.4.10"
+ksp = "2.3.10"
+
+agp = "9.2.1"
+compose-bom = "2026.06.01"
+androidx-core = "1.19.0"
+androidx-activity = "1.13.0"
+androidx-lifecycle = "2.11.0"
+kotlinpoet = "2.3.0"
+kotlin-compile-testing = "0.13.0"
+junit = "4.13.2"
+truth = "1.4.5"
+maven-publish = "0.37.0"
+dokka = "2.2.0"
+
+[libraries]
+# KSP
+ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+ksp-symbol-processing = { module = "com.google.devtools.ksp:symbol-processing", version.ref = "ksp" }
+
+# KotlinPoet (code generation)
+kotlinpoet = { module = "com.squareup:kotlinpoet-jvm", version.ref = "kotlinpoet" }
+kotlinpoet-ksp = { module = "com.squareup:kotlinpoet-ksp", version.ref = "kotlinpoet" }
+
+# Compose (via BOM — no explicit versions on artifacts)
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+
+# AndroidX (sample app)
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidx-lifecycle" }
+
+# Testing
+kotlin-compile-testing = { module = "dev.zacsweers.kctfork:core", version.ref = "kotlin-compile-testing" }
+kotlin-compile-testing-ksp = { module = "dev.zacsweers.kctfork:ksp", version.ref = "kotlin-compile-testing" }
+junit = { module = "junit:junit", version.ref = "junit" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
