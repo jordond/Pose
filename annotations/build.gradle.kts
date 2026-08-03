@@ -19,4 +19,8 @@ mavenPublishing {
         artifactId = "annotations",
         version = project.version.toString(),
     )
+    pom {
+        name.set("Pose Annotations")
+        description.set("Marker annotations (@Pose, @PoseProvider, @PoseIgnore) for the Pose KSP processor. Pure Kotlin JVM, no Compose dependency.")
+    }
 }

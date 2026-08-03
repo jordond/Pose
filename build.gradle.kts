@@ -13,7 +13,7 @@ plugins {
 
 allprojects {
     group = "io.github.akshaychordiya.pose"
-    version = "0.3.0-SNAPSHOT"
+    version = "0.4.0"
 
     plugins.withId("com.vanniktech.maven.publish") {
         extensions.configure<MavenPublishBaseExtension> {
@@ -23,7 +23,7 @@ allprojects {
             pom {
                 name.set(project.name)
                 description.set("Auto-generates Jetpack Compose @Preview functions via KSP.")
-                url.set("https://github.com/AkshayChordiya/pose")
+                url.set("https://github.com/AkshayChordiya/Pose")
                 licenses {
                     license {
                         name.set("The Apache Software License, Version 2.0")
@@ -37,9 +37,9 @@ allprojects {
                     }
                 }
                 scm {
-                    url.set("https://github.com/AkshayChordiya/pose")
-                    connection.set("scm:git:git://github.com/AkshayChordiya/pose.git")
-                    developerConnection.set("scm:git:ssh://git@github.com/AkshayChordiya/pose.git")
+                    url.set("https://github.com/AkshayChordiya/Pose")
+                    connection.set("scm:git:git://github.com/AkshayChordiya/Pose.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/AkshayChordiya/Pose.git")
                 }
             }
         }

@@ -1,0 +1,55 @@
+# Changelog
+
+All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
+
+## [0.4.0] — first Maven Central release
+
+First release published to Maven Central under `io.github.akshaychordiya.pose`. No API changes from 0.3.0 — this cut is about getting the artifact into people's hands.
+
+### Publishing
+
+- POM metadata (name, description, url, licenses, developers, scm) wired on both artifacts so Central Portal accepts the upload.
+- GitHub Actions release workflow triggers on `v*` tag push and runs `publishAndReleaseToMavenCentral` (auto-promotes the staging repo).
+- Signing keys and Sonatype credentials sourced from repo secrets — no local key material required for CI.
+
+## [0.3.0] — bulk opt-in + better refusal messages
+
+### Added
+
+- `pose.generatePreviewsForAllPublicComposables` KSP option. When `true`, every public top-level `@Composable fun … : Unit` in the module gets a generated preview without needing `@Pose`. Skips composables that already carry `@Pose` (explicit config wins), `@PoseIgnore`, or a hand-written `@Preview`.
+- `@PoseIgnore` annotation for opting a single composable out of bulk mode.
+- `docs/refusals.md` — catalog of every `PG-xxx` code with rewrite patterns. All diagnostic messages link back here via an anchor.
+
+### Changed
+
+- Bulk mode implicitly coerces `pose.strict` to `false`; a single un-fakeable composable becomes a warning-and-skip instead of failing the build.
+- `Diagnostics.refusal()` now demotes every refusal code to a warning when `strict = false`. Previously only PG001/PG002/PG010 were downgradable, so `strict = false` was misleadingly lenient for signature refusals.
+- SignatureChecker refusals routed through `refusal()` instead of `hardError()` so `pose.strict` actually applies to them.
+- All refusal messages now name the composable, give a concrete fix (rewrite skeleton, provider snippet, or config change), and link to `docs/refusals.md#<pg-code>`.
+
+## [0.2.0] — `@Pose(providers)` + capability showcase
+
+### Added
+
+- `@Pose(providers = [PoseProvider(...)])` binds a `PreviewParameterProvider<T>` at the composable level. Two matching modes: generic-type (default) and explicit `forParam` for disambiguating same-typed parameters. Named binding wins over generic-type binding.
+- Default `@Preview` pair now stamps `showBackground = true` so previews read correctly against dark IDE themes.
+
+### Fixed
+
+- Provider-slot selection now skips parameters already bound by `@Pose(providers)`, so explicit providers beat structural / companion / sealed fan-out for their parameter.
+- `SampleResolver` refuses to synthesize class-shaped types whose visibility is not `public` or `internal` — was previously emitting references to private data classes that failed to compile in downstream projects.
+
+### Removed
+
+- Pre-release `@PreviewSampleOf` — the surface consolidated onto `@Pose(providers)`.
+
+## [0.1.0] — initial
+
+- `@Pose` annotation, KSP2 processor, tier ladder (T0 default → T1 well-known FQN → T2 structural synthesis).
+- Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
+- Sample app with LoginContent + HomeContent.
+
+[0.4.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.0
+[0.3.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.3.0
+[0.2.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.2.0
+[0.1.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.1.0

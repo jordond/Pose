@@ -31,7 +31,7 @@ public enum class DiagnosticCode(public val message: String) {
         get() = "$DOCS_BASE#${name.lowercase()}"
 
     public companion object {
-        public const val DOCS_BASE: String = "https://github.com/akshaychordiya/pose/blob/main/docs/refusals.md"
+        public const val DOCS_BASE: String = "https://github.com/AkshayChordiya/Pose/blob/main/docs/refusals.md"
     }
 }
 

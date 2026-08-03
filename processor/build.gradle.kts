@@ -21,6 +21,10 @@ mavenPublishing {
         artifactId = "processor",
         version = project.version.toString(),
     )
+    pom {
+        name.set("Pose Processor")
+        description.set("Auto-generate your Compose @Previews from @Pose-annotated composables at build time.")
+    }
 }
 
 dependencies {
