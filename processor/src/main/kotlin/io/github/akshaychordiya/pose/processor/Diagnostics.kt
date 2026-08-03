@@ -20,10 +20,30 @@ public enum class DiagnosticCode(public val message: String) {
     PG013("hand-written @Preview detected — skipping generation"),
     PG014("@Pose applied to a non-@Composable function"),
     PG015("@Pose applied to a function that does not return Unit"),
-    PG017("previews[] entry is not annotated @Preview"),
+    PG017("previews[] entry is not annotated @Preview");
+
+    /**
+     * Stable deep-link into the refusal-catalog docs. Anchors are lowercased
+     * enum names — `PG003` → `…#pg003`. Kept next to the code so callers can
+     * do `code.docsUrl` instead of hand-stitching strings.
+     */
+    public val docsUrl: String
+        get() = "$DOCS_BASE#${name.lowercase()}"
+
+    public companion object {
+        public const val DOCS_BASE: String = "https://github.com/akshaychordiya/pose/blob/main/docs/refusals.md"
+    }
 }
 
-/** Sink for structured diagnostics. */
+/**
+ * Sink for structured diagnostics. Message shape:
+ * `[PGxxx] <one-line summary>. <specific detail>`
+ *
+ * `refusal()` respects `strict`: when `false`, every refusal is demoted to a
+ * warning and the composable is skipped. Only [hardError] survives the demote
+ * — reserve it for problems that would produce broken code if we tried to
+ * proceed (misconfigured `pose.themeFqName`, malformed `previews[]` entries).
+ */
 public class Diagnostics(
     private val logger: KSPLogger,
     private val strict: Boolean,
@@ -35,17 +55,14 @@ public class Diagnostics(
     }
 
     /**
-     * Refusal that respects `strict`. `strict=false` downgrades PG001/PG002/PG010
-     * to warnings; other codes remain hard errors even in non-strict mode.
+     * Refusal that respects `strict`. `strict=false` downgrades every refusal
+     * to a warning — the composable is skipped but the build proceeds.
      */
     public fun refusal(code: DiagnosticCode, node: KSNode?, detail: String) {
-        val downgradable = code == DiagnosticCode.PG001 ||
-            code == DiagnosticCode.PG002 ||
-            code == DiagnosticCode.PG010
-        if (downgradable && !strict) {
-            logger.warn("[${code.name}] ${code.message}. $detail", node)
-        } else {
+        if (strict) {
             logger.error("[${code.name}] ${code.message}. $detail", node)
+        } else {
+            logger.warn("[${code.name}] ${code.message}. $detail", node)
         }
     }
 

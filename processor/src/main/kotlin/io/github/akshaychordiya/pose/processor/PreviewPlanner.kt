@@ -332,25 +332,40 @@ public class PreviewPlanner(
     }
 
     private fun emitRefusalDiagnostic(fn: KSFunctionDeclaration, reason: RefusalReason) {
+        val simple = fn.simpleName.asString()
         when (reason) {
             is RefusalReason.RefuseCategory -> diagnostics.refusal(
                 DiagnosticCode.PG003, fn,
-                "parameter `${reason.paramPath}` type `${reason.typeFqn}` is in the ${reason.category} refuse category. " +
-                    "Hoist state (Screen(vm) / ScreenContent(state, onEvent))."
+                "`$simple`: parameter `${reason.paramPath}: ${reason.typeFqn}` is a ${reason.category}. " +
+                    "Pose can't preview composables that inject runtime state. " +
+                    "Fix: split into `$simple(vm = viewModel())` (holds the ${reason.category}) → " +
+                    "`${simple}Content(state, onEvent)` (plain state) and annotate the Content variant with @Pose. " +
+                    "Docs: ${DiagnosticCode.PG003.docsUrl}"
             )
-            is RefusalReason.NoStrategy -> diagnostics.refusal(
-                DiagnosticCode.PG001, fn,
-                "parameter `${reason.paramPath}` (type `${reason.typeFqn}`) has no fake strategy. " +
-                    "Tried: ${reason.triedTiers.joinToString()}. " +
-                    "Fix: hand-write a @Preview for this composable, or PR this type into the plugin's FQN table."
-            )
+            is RefusalReason.NoStrategy -> {
+                val typeSimple = reason.typeFqn.substringAfterLast('.').ifEmpty { reason.typeFqn }
+                diagnostics.refusal(
+                    DiagnosticCode.PG001, fn,
+                    "`$simple`: parameter `${reason.paramPath}: ${reason.typeFqn}` has no fake strategy " +
+                        "(tried ${reason.triedTiers.joinToString()}). " +
+                        "Fix — either " +
+                        "(1) add `companion object { val previewSamples: Sequence<$typeSimple> = … }` to $typeSimple, " +
+                        "(2) bind a provider with `@Pose(providers = [PoseProvider(${typeSimple}Samples::class)])`, or " +
+                        "(3) hand-write a @Preview for `$simple`. " +
+                        "Docs: ${DiagnosticCode.PG001.docsUrl}"
+                )
+            }
             is RefusalReason.Cycle -> diagnostics.refusal(
                 DiagnosticCode.PG002, fn,
-                "cycle in structural synthesis at `${reason.paramPath}`: ${reason.chain.joinToString(" -> ")}"
+                "`$simple`: structural cycle at `${reason.paramPath}` — ${reason.chain.joinToString(" → ")}. " +
+                    "Fix: break the cycle by supplying one of the types via `@Pose(providers = [...])` " +
+                    "or a `companion.previewSamples` sequence. " +
+                    "Docs: ${DiagnosticCode.PG002.docsUrl}"
             )
             is RefusalReason.InvisibleSealedSubtype -> diagnostics.refusal(
                 DiagnosticCode.PG006, fn,
-                "sealed type `${reason.sealedFqn}` has no subclasses visible in this compilation."
+                "`$simple`: sealed type `${reason.sealedFqn}` has no subclasses visible in this compilation. " +
+                    "Docs: ${DiagnosticCode.PG006.docsUrl}"
             )
         }
     }

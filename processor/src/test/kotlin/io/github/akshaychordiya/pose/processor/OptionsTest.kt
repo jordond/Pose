@@ -40,4 +40,28 @@ class OptionsTest {
         val opt = Options.from(mapOf("pose.themeFqName" to "   "))
         assertThat(opt.themeFqName).isNull()
     }
+
+    @Test
+    fun `bulk opt-in defaults to false`() {
+        val opt = Options.from(emptyMap())
+        assertThat(opt.generatePreviewsForAllPublicComposables).isFalse()
+    }
+
+    @Test
+    fun `bulk opt-in on coerces strict to false regardless of pose_strict`() {
+        val opt = Options.from(
+            mapOf(
+                "pose.generatePreviewsForAllPublicComposables" to "true",
+                "pose.strict" to "true", // deliberately conflicting — bulk should win.
+            )
+        )
+        assertThat(opt.generatePreviewsForAllPublicComposables).isTrue()
+        assertThat(opt.strict).isFalse()
+    }
+
+    @Test
+    fun `bulk opt-in off leaves pose_strict alone`() {
+        val opt = Options.from(mapOf("pose.strict" to "true"))
+        assertThat(opt.strict).isTrue()
+    }
 }

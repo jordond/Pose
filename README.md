@@ -36,8 +36,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.2.0")
-    kspDebug      ("io.github.akshaychordiya.pose:processor:0.2.0")
+    implementation("io.github.akshaychordiya.pose:annotations:0.3.0")
+    kspDebug      ("io.github.akshaychordiya.pose:processor:0.3.0")
 
     implementation     ("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -208,18 +208,42 @@ Emits `PG-xxx` diagnostics for:
 - Generic type parameters or context receivers on the composable.
 - `private` visibility, or member composables (must be top-level or in an `object`).
 
-Handwritten `@Preview` in the same file → Pose detects it and skips generation (info-logged with `pose.verboseSkips=true`).
+Every refusal message names the composable, gives a concrete fix, and links to the [refusal catalog](docs/refusals.md).
+
+### Bulk opt-in → every public composable in the module
+
+For teams that want previews everywhere without annotating each composable, flip one flag:
+
+```kotlin
+ksp {
+    arg("pose.themeFqName", "com.example.ui.AppTheme")
+    arg("pose.generatePreviewsForAllPublicComposables", "true")
+}
+```
+
+Every public top-level `@Composable fun … : Unit` in the module now gets a generated preview. Bulk mode implicitly sets `pose.strict = false` — a single un-fakeable composable turns into a warning-and-skip instead of failing the build.
+
+Opt individual composables out with `@PoseIgnore`:
+
+```kotlin
+@PoseIgnore
+@Composable
+fun DebugOverlay(state: DebugState) { /* … */ }   // public but noisy in the preview panel
+```
+
+Pose also skips any composable that already carries `@Preview`, and honors explicit `@Pose(...)` arguments (name/wrapInTheme/previews/providers) when both are present.
 
 ## KSP options
 
-| Option                          | Default | Behavior                                                          |
-|---------------------------------|---------|-------------------------------------------------------------------|
-| `pose.themeFqName`              | *unset* | Theme composable to wrap generated calls in                       |
-| `pose.strict`                   | `true`  | `false` downgrades no-strategy / cycle / cap-exceeded to warnings |
-| `pose.maxDepth`                 | `8`     | Cap on recursion depth for structural synthesis                   |
-| `pose.collectionSize`           | `2`     | Elements emitted for `List` / `Set`                               |
-| `pose.maxPreviewsPerComposable` | `8`     | Cap on total previews per composable                              |
-| `pose.verboseSkips`             | `false` | Log every skip decision                                           |
+| Option                                              | Default | Behavior                                                                                                            |
+|-----------------------------------------------------|---------|---------------------------------------------------------------------------------------------------------------------|
+| `pose.themeFqName`                                  | *unset* | Theme composable to wrap generated calls in                                                                         |
+| `pose.strict`                                       | `true`  | `false` demotes refusals (PG001/PG002/PG003/PG010/…) to warnings                                                    |
+| `pose.generatePreviewsForAllPublicComposables`      | `false` | Bulk opt-in — every public composable gets a preview. Implicitly sets `pose.strict = false`                         |
+| `pose.maxDepth`                                     | `8`     | Cap on recursion depth for structural synthesis                                                                     |
+| `pose.collectionSize`                               | `2`     | Elements emitted for `List` / `Set`                                                                                 |
+| `pose.maxPreviewsPerComposable`                     | `8`     | Cap on total previews per composable                                                                                |
+| `pose.verboseSkips`                                 | `false` | Log every skip decision                                                                                             |
 
 ## Limitations
 
