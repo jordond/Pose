@@ -56,6 +56,14 @@ internal object CompileHarness {
             @file:Suppress("unused")
 
             package androidx.compose.runtime
+
+            @Target(
+                AnnotationTarget.FUNCTION,
+                AnnotationTarget.TYPE,
+                AnnotationTarget.TYPE_PARAMETER,
+                AnnotationTarget.PROPERTY,
+                AnnotationTarget.PROPERTY_GETTER,
+            )
             annotation class Composable
             """.trimIndent()
         ),
@@ -69,7 +77,11 @@ internal object CompileHarness {
             import kotlin.reflect.KClass
 
             @Repeatable
-            annotation class Preview(val name: String = "")
+            annotation class Preview(
+                val name: String = "",
+                val uiMode: Int = 0,
+                val showBackground: Boolean = false,
+            )
             @Preview @Preview annotation class PreviewLightDark
             @Preview @Preview @Preview annotation class PreviewFontScale
             annotation class PreviewParameter(

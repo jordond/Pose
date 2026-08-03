@@ -84,6 +84,18 @@ public class SampleResolver(
             return SampleExpr.Emit(emitter.emit(inner), tier = 1, note = "FQN generic")
         }
 
+        // T1d - developer-provided `companion.previewSamples`. Used both at the top
+        // level (via @PreviewParameter — planner-side) AND during nested recursion
+        // here, where we take the first value from the sequence inline. This unlocks
+        // types like sealed classes whose subtypes are hidden behind a factory.
+        if (decl != null && hasCompanionPreviewSamples(decl)) {
+            return SampleExpr.Emit(
+                CodeBlock.of("%T.previewSamples.first()", decl.toClassName()),
+                tier = 1,
+                note = "companion.previewSamples (nested)",
+            )
+        }
+
         // T2 - structural synthesis
         return synthesize(type, decl, fqn, ctx)
     }
@@ -156,6 +168,16 @@ public class SampleResolver(
     }
 
     private fun synthesizeClassLike(decl: KSClassDeclaration, ctx: Context): SampleExpr {
+        // The class ITSELF must be accessible from the generated file. Data classes
+        // marked `private` (or ones inside a sealed hierarchy where variants are
+        // hidden behind a factory) will have a synthesized constructor that KSP
+        // reports as public — so we can't rely on the constructor visibility alone.
+        val classVisibility = decl.getVisibility()
+        if (classVisibility != Visibility.PUBLIC && classVisibility != Visibility.INTERNAL) {
+            return SampleExpr.Refuse(
+                RefusalReason.NoStrategy(ctx.paramPath, decl.qualifiedNameOrEmpty(), listOf("T2-inaccessible-class-$classVisibility"))
+            )
+        }
         val ctor = decl.primaryConstructor
             ?: return SampleExpr.Refuse(RefusalReason.NoStrategy(ctx.paramPath, decl.qualifiedNameOrEmpty(), listOf("T2-no-primary-ctor")))
         if (ctor.getVisibility() != Visibility.PUBLIC && ctor.getVisibility() != Visibility.INTERNAL) {
@@ -264,6 +286,16 @@ internal fun KSType.fullyQualifiedName(): String? =
 
 internal fun KSClassDeclaration.qualifiedNameOrEmpty(): String =
     qualifiedName?.asString() ?: ""
+
+/** True if the type's companion exposes `val previewSamples: Sequence<T>`. */
+internal fun hasCompanionPreviewSamples(decl: KSClassDeclaration): Boolean {
+    val companion = decl.declarations
+        .filterIsInstance<KSClassDeclaration>()
+        .firstOrNull { it.isCompanionObject } ?: return false
+    val prop = companion.getAllProperties()
+        .firstOrNull { it.simpleName.asString() == "previewSamples" } ?: return false
+    return prop.type.resolve().declaration.qualifiedName?.asString() == "kotlin.sequences.Sequence"
+}
 
 internal fun KSClassDeclaration.getSealedSubclassesOrEmpty(): List<KSClassDeclaration> = try {
     getSealedSubclasses().toList()

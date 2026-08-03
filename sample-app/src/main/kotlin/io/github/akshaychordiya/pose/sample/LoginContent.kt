@@ -10,6 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.akshaychordiya.pose.Pose
 
+/**
+ * Showcase — the zero-config case.
+ */
 data class LoginUiState(
     val email: String,
     val password: String,
@@ -30,28 +33,6 @@ fun LoginContent(
         if (state.error != null) Text(state.error)
         Button(onClick = onSubmit, enabled = !state.isSubmitting) {
             Text(if (state.isSubmitting) "Submitting…" else "Sign in")
-        }
-    }
-}
-
-/** Sealed UI state → generator emits one preview per subtype. */
-sealed interface HomeState {
-    data object Loading : HomeState
-    data class Success(val greeting: String) : HomeState
-    data class Error(val message: String) : HomeState
-}
-
-@Pose
-@Composable
-fun HomeContent(state: HomeState, onRetry: () -> Unit) {
-    Column(Modifier.padding(16.dp)) {
-        when (state) {
-            HomeState.Loading -> Text("Loading…")
-            is HomeState.Success -> Text(state.greeting)
-            is HomeState.Error -> {
-                Text(state.message)
-                Button(onClick = onRetry) { Text("Retry") }
-            }
         }
     }
 }

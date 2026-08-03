@@ -36,8 +36,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.1.0")
-    kspDebug      ("io.github.akshaychordiya.pose:processor:0.1.0")
+    implementation("io.github.akshaychordiya.pose:annotations:0.2.0")
+    kspDebug      ("io.github.akshaychordiya.pose:processor:0.2.0")
 
     implementation     ("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -97,6 +97,41 @@ data class LoginUiState(...) {
 
 Pose wires it through `@PreviewParameter` automatically. Every composable taking `LoginUiState` now shows all variants. Write once, benefit everywhere.
 
+### Bring your own PreviewParameterProvider → `@Pose(providers = […])`
+
+Sometimes you don't own the type (can't add a companion), or you want composable-scoped sample data without polluting the type. Attach a standard Compose `PreviewParameterProvider<T>` on the annotation:
+
+```kotlin
+class ArticleSamples : PreviewParameterProvider<Article> {
+    override val values = sequenceOf(
+        Article(title = "Hello world",  body = "First paragraph"),
+        Article(title = "Longer post",  body = "Longer body with more text"),
+    )
+}
+
+@Pose(providers = [PoseProvider(ArticleSamples::class)])
+@Composable
+fun ArticleCard(
+    article: Article,           // ← auto-matched to ArticleSamples by generic type
+    onOpen: () -> Unit,
+) { /* … */ }
+```
+
+Pose walks each entry's `PreviewParameterProvider<T>` supertype, extracts `T`, and matches it against the composable's parameter types. Emits `ArticleSamples().values.first()` inline for that parameter. Providers are scoped to this composable — they never leak into others.
+
+**Disambiguating same-typed parameters** — when two parameters share a type but need different data, name them explicitly:
+
+```kotlin
+@Pose(providers = [
+    PoseProvider(ArticleSamples::class,         forParam = "left"),
+    PoseProvider(FeaturedArticleSamples::class, forParam = "right"),
+])
+@Composable
+fun ArticleComparison(left: Article, right: Article) { /* … */ }
+```
+
+Named binding always wins over generic-type binding when both would apply.
+
 ### Preview matrix → one project-wide multipreview annotation
 
 Bundle every dimension your team cares about into one annotation, use it consistently:
@@ -153,14 +188,15 @@ Add a composable → next CI run adds a golden to review. Rename it → the gold
 
 ## How values are synthesized
 
-Per parameter, first match wins:
+Per parameter, first match wins (top-down):
 
-| Tier       | Rule                                                                                                                |
-|------------|---------------------------------------------------------------------------------------------------------------------|
-| **T0**     | Parameter has a default → omit the argument                                                                         |
-| **T1**     | Well-known FQN (Compose value classes, `Flow`, `StateFlow`, `java.time`, `Uri`, `Result<T>`, …) → inline expression |
-| **T2**     | Structural synthesis (primitives, enums, data classes, sealed, value classes, function types, collections)          |
-| **Refuse** | No strategy → `PG-xxx` diagnostic + skip                                                                            |
+| Tier         | Rule                                                                                                                |
+|--------------|---------------------------------------------------------------------------------------------------------------------|
+| **Explicit** | `@Pose(providers = [PoseProvider(...)])` binding matches (named `forParam` first, then generic-type)                |
+| **T0**       | Parameter has a default → omit the argument                                                                         |
+| **T1**       | Well-known FQN (Compose value classes, `Flow`, `StateFlow`, `java.time`, `Uri`, `Result<T>`, …) → inline expression |
+| **T2**       | Structural synthesis (primitives, enums, data classes, sealed, value classes, function types, collections)          |
+| **Refuse**   | No strategy → `PG-xxx` diagnostic + skip                                                                            |
 
 Deterministic - never `Random`, never clock.
 

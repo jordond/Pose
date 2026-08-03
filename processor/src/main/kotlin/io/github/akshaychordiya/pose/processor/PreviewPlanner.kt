@@ -1,11 +1,13 @@
 package io.github.akshaychordiya.pose.processor
 
+import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.ksp.toClassName
@@ -28,6 +30,7 @@ import com.squareup.kotlinpoet.ksp.toTypeName
  * Refusals are emitted to [Diagnostics] and produce an empty result list.
  */
 public class PreviewPlanner(
+    private val resolver: Resolver,
     private val options: Options,
     private val diagnostics: Diagnostics,
 ) {
@@ -35,7 +38,7 @@ public class PreviewPlanner(
     private val sampleResolver = SampleResolver(options = options)
 
     public fun plan(fn: KSFunctionDeclaration, ann: PreviewAnnotationArgs): List<PreviewPlan> {
-        val providerSlotParam = findProviderSlotParam(fn) ?:
+        val providerSlotParam = findProviderSlotParam(fn, ann.providers) ?:
         // No domain-shaped parameter — inline everything.
         return buildSinglePlan(fn, ann, sealedInline = null, provider = null)?.let(::listOf)
             .orEmpty()
@@ -110,6 +113,17 @@ public class PreviewPlanner(
             if (sealedInline != null && param == sealedInline.param) {
                 otherArgs += PreviewPlan.CallArg(name, sealedInline.expr)
                 notes += PreviewPlan.ResolutionNote(name, "T2", sealedInline.tierNote)
+                continue
+            }
+            // @Pose(providers = [PoseProvider(...)]) — named binding wins,
+            // then fall through to generic-type binding.
+            val poseProviderMatch = resolveProviderForParam(param, ann.providers)
+            if (poseProviderMatch != null) {
+                otherArgs += PreviewPlan.CallArg(
+                    name,
+                    CodeBlock.of("%T().values.first()", fqnToClassName(poseProviderMatch.providerFqn)),
+                )
+                notes += PreviewPlan.ResolutionNote(name, "T1", "@Pose(${poseProviderMatch.kind})")
                 continue
             }
             when (val r = sampleResolver.resolveParameter(name, param.type, param.hasDefault)) {
@@ -225,11 +239,17 @@ public class PreviewPlanner(
      * A parameter qualifies for the `@PreviewParameter` slot when its type is
      * "domain-shaped" — enum, sealed, data class, value class, or a class with a
      * public primary constructor. Objects, primitives, function types, and refuse
-     * categories are excluded.
+     * categories are excluded. Params already bound by `@Pose(providers = [...])`
+     * are also excluded — an explicit provider makes the param a normal inline
+     * arg, not the slot.
      */
-    private fun findProviderSlotParam(fn: KSFunctionDeclaration): KSValueParameter? {
+    private fun findProviderSlotParam(
+        fn: KSFunctionDeclaration,
+        poseProviders: List<PoseProviderEntry>,
+    ): KSValueParameter? {
         for (param in fn.parameters) {
             if (param.hasDefault) continue
+            if (resolveProviderForParam(param, poseProviders) != null) continue
             val decl = param.type.resolve().declaration as? KSClassDeclaration ?: continue
             val fqn = decl.qualifiedName?.asString() ?: continue
 
@@ -270,6 +290,47 @@ public class PreviewPlanner(
         return propTypeFqn == "kotlin.sequences.Sequence"
     }
 
+    private data class ProviderMatch(val providerFqn: String, val kind: String)
+
+    /**
+     * Resolves a `@Pose(providers = [...])` entry for [param]. Order:
+     *  1. Named entry (`forParam = "<paramName>"`) wins outright.
+     *  2. Unnamed entry whose `PreviewParameterProvider<T>` generic `T` matches
+     *     [param]'s type FQN (nullability ignored).
+     */
+    private fun resolveProviderForParam(
+        param: KSValueParameter,
+        providers: List<PoseProviderEntry>,
+    ): ProviderMatch? {
+        if (providers.isEmpty()) return null
+        val paramName = param.name?.asString().orEmpty()
+        providers.firstOrNull { it.forParam.isNotEmpty() && it.forParam == paramName }
+            ?.let { return ProviderMatch(it.providerFqn, "providers.forParam") }
+
+        val paramTypeFqn = param.type.resolve().declaration.qualifiedName?.asString() ?: return null
+        for (entry in providers) {
+            if (entry.forParam.isNotEmpty()) continue
+            val providerDecl = resolver.getClassDeclarationByName(
+                resolver.getKSNameFromString(entry.providerFqn),
+            ) ?: continue
+            val ppp = providerDecl.superTypes
+                .map { it.resolve() }
+                .firstOrNull {
+                    it.declaration.qualifiedName?.asString() == PREVIEW_PARAMETER_PROVIDER_FQN
+                } ?: continue
+            val targetFqn = ppp.arguments.firstOrNull()
+                ?.type?.resolve()
+                ?.declaration?.qualifiedName?.asString() ?: continue
+            if (targetFqn == paramTypeFqn) return ProviderMatch(entry.providerFqn, "providers")
+        }
+        return null
+    }
+
+    private fun fqnToClassName(fqn: String): ClassName {
+        val idx = fqn.lastIndexOf('.')
+        return ClassName(fqn.substring(0, idx), fqn.substring(idx + 1))
+    }
+
     private fun emitRefusalDiagnostic(fn: KSFunctionDeclaration, reason: RefusalReason) {
         when (reason) {
             is RefusalReason.RefuseCategory -> diagnostics.refusal(
@@ -295,6 +356,8 @@ public class PreviewPlanner(
     }
 
     private companion object {
+        private const val PREVIEW_PARAMETER_PROVIDER_FQN = "androidx.compose.ui.tooling.preview.PreviewParameterProvider"
+
         private val COLLECTION_FQNS = setOf(
             "kotlin.collections.List",
             "kotlin.collections.MutableList",

@@ -19,7 +19,7 @@ Requires JDK 17. Gradle wraps everything else.
 | `io.github.akshaychordiya.pose:processor`   | The KSP2 symbol processor (pure Kotlin JVM JAR)                             | `kspDebug`                 |
 | `sample-app`                                | End-to-end smoke test showing the plugin running against a real Android app | not published              |
 
-The annotations JAR is intentionally minimal — one annotation class, no runtime dependencies. Consumers of Pose should not accidentally pull in Compose tooling just by depending on the marker.
+The annotations JAR is intentionally minimal — the `@Pose` marker plus the nested `@PoseProvider` entry type, no runtime dependencies. Consumers of Pose should not accidentally pull in Compose tooling just by depending on the marker.
 
 The processor consumes `symbol-processing-api` and `kotlinpoet-ksp`; it never depends on the annotations JAR at runtime (only reads the annotation FQN from source symbols).
 
@@ -52,6 +52,15 @@ Key invariants:
 - **Determinism.** Sample values are seeded from a hash of `(composable FQN, parameter path, type FQN)`. No `Random`, no clock, no classpath-iteration-order.
 - **One file per KSFile.** All previews for composables declared in `Foo.kt` land in `Foo__Preview.kt`. The emitter groups plans by containing file and writes each grouped file once.
 
+### Per-parameter resolution order
+
+The pipeline shapes above (Simple / Companion / Fanout / Structural) decide the plan skeleton. Every remaining parameter inside a plan is then filled by `buildSinglePlan`, first match wins:
+
+1. **`@Pose(providers = [PoseProvider(...)])`** — named binding (`forParam`) checked first, then generic-type match on the provider's `PreviewParameterProvider<T>` supertype. Emits `<Provider>().values.first()` inline.
+2. **`SampleResolver` tier ladder** — T0 default → T1 well-known FQN → T2 structural synthesis → refusal.
+
+The provider-slot param (the one that carries `@PreviewParameter` in the generated function) is exempt from step 1 — it's already handled by the plan shape (companion sequence or sealed fan-out).
+
 ## Where each concern lives
 
 | Concern                                                                                | File                      |
@@ -59,6 +68,7 @@ Key invariants:
 | Detect `@Pose` annotation, drive the pipeline                                          | `PoseProcessor`           |
 | Validate signature (visibility, receivers, generics, refuse-category params)           | `SignatureChecker`        |
 | Decide the emission shape (inline vs companion vs sealed fan-out)                      | `PreviewPlanner`          |
+| Match `@Pose(providers = [PoseProvider(...)])` entries to parameters                   | `PreviewPlanner`          |
 | Recursive structural synthesis of values                                               | `SampleResolver`          |
 | Well-known types (Compose value classes, `Flow`, `java.time`, refuse-category list)    | `FqnTable`                |
 | Function-type lambda placeholders (`() -> Unit`, `@Composable BoxScope.() -> Unit`, …) | `FunctionTypeSynthesizer` |

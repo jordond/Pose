@@ -41,7 +41,7 @@ public class PoseProcessor(
             .filterIsInstance<KSFunctionDeclaration>()
             .toList()
 
-        val planner = PreviewPlanner(options = options, diagnostics = diagnostics)
+        val planner = PreviewPlanner(resolver = resolver, options = options, diagnostics = diagnostics)
         val emitter = PreviewFileEmitter(codeGenerator = codeGenerator, options = options)
 
         val plans = mutableListOf<PreviewPlan>()
@@ -59,11 +59,8 @@ public class PoseProcessor(
             }
 
             val annArgs = PreviewAnnotationArgs.parse(ann)
-            if (annArgs.previewAnnotationFqns.isEmpty()) {
-                diagnostics.warn(DiagnosticCode.PG012, fn, "previews array is empty; skipping.")
-                continue
-            }
-
+            // Empty previewAnnotationFqns is the valid default — the emitter stamps
+            // Pose's own light+dark @Preview pair (with showBackground = true).
             plans += planner.plan(fn, annArgs)
         }
         emitter.emitAll(plans)

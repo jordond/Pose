@@ -73,8 +73,16 @@ public class PreviewFileEmitter(
             .addModifiers(KModifier.INTERNAL)
             .addAnnotation(ClassName("androidx.compose.runtime", "Composable"))
 
-        plan.annotation.previewAnnotationFqns.forEach { fqn ->
-            builder.addAnnotation(fqnToClassName(fqn))
+        if (plan.annotation.previewAnnotationFqns.isEmpty()) {
+            // Default: light + dark, both with showBackground = true. Emitted as two
+            // explicit @Preview stampings rather than a wrapper multipreview class so
+            // the annotations JAR stays free of any Compose dependency.
+            builder.addAnnotation(defaultPreviewAnn(name = "Light", nightMode = false))
+            builder.addAnnotation(defaultPreviewAnn(name = "Dark", nightMode = true))
+        } else {
+            plan.annotation.previewAnnotationFqns.forEach { fqn ->
+                builder.addAnnotation(fqnToClassName(fqn))
+            }
         }
 
         plan.providerSlot?.let { slot ->
@@ -161,6 +169,19 @@ public class PreviewFileEmitter(
         val idx = fqn.lastIndexOf('.')
         return MemberName(fqn.substring(0, idx), fqn.substring(idx + 1))
     }
+
+    /**
+     * Stamped for each generated preview when the user hasn't overridden `previews`.
+     * `UI_MODE_NIGHT_NO` = 0x10 (16); `UI_MODE_NIGHT_YES` = 0x20 (32). We inline the
+     * numeric constants rather than importing `android.content.res.Configuration` so
+     * the emitted file has one fewer import — cleaner grep target.
+     */
+    private fun defaultPreviewAnn(name: String, nightMode: Boolean): AnnotationSpec =
+        AnnotationSpec.builder(ClassName("androidx.compose.ui.tooling.preview", "Preview"))
+            .addMember("name = %S", name)
+            .addMember("uiMode = %L", if (nightMode) 0x20 else 0x10)
+            .addMember("showBackground = true")
+            .build()
 
     private fun fqnToClassName(fqn: String): ClassName {
         val idx = fqn.lastIndexOf('.')

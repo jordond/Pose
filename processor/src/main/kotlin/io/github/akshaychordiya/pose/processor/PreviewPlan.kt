@@ -54,30 +54,57 @@ public data class ProviderSlot(
     public enum class Source { COMPANION_SAMPLES, STRUCTURAL, SEALED_FAN_OUT }
 }
 
+/** One entry from `@Pose(providers = [PoseProvider(...), ...])`. */
+public data class PoseProviderEntry(
+    val providerFqn: String,
+    /** Empty string means "match by generic type"; non-empty means "match this parameter name". */
+    val forParam: String,
+)
+
 /** Parsed subset of the `@Pose` annotation values. */
 public data class PreviewAnnotationArgs(
     val name: String,
     val wrapInTheme: Boolean,
-    /** FQNs of every KClass entry in `previews[]`. Empty falls back to `PreviewLightDark`. */
+    /**
+     * FQNs of every KClass entry in `previews[]`. When empty, the emitter stamps
+     * Pose's default pair: `@Preview(uiMode = UI_MODE_NIGHT_NO,  showBackground = true)`
+     * and `@Preview(uiMode = UI_MODE_NIGHT_YES, showBackground = true)`.
+     * We use `showBackground = true` because the default transparent preview reads
+     * as broken against Studio's dark IDE theme.
+     */
     val previewAnnotationFqns: List<String>,
+    /**
+     * Provider bindings from `@Pose(providers = [PoseProvider(...)])`. Each entry
+     * either names the parameter directly (`forParam = "..."`) or is matched by
+     * the provider's `PreviewParameterProvider<T>` generic type.
+     */
+    val providers: List<PoseProviderEntry>,
 ) {
     public companion object {
-        public fun parse(ann: KSAnnotation): PreviewAnnotationArgs {
-            val args = ann.arguments.associateBy { it.name?.asString().orEmpty() }
-            val previews = (args["previews"]?.value as? List<*>).orEmpty().mapNotNull(::toFqn)
-            return PreviewAnnotationArgs(
-                name = (args["name"]?.value as? String).orEmpty(),
-                wrapInTheme = (args["wrapInTheme"]?.value as? Boolean) ?: true,
-                previewAnnotationFqns = previews.ifEmpty {
-                    listOf("androidx.compose.ui.tooling.preview.PreviewLightDark")
-                },
-            )
-        }
+        public fun parse(ann: KSAnnotation): PreviewAnnotationArgs = PreviewAnnotationArgs(
+            name = (ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String).orEmpty(),
+            wrapInTheme = (ann.arguments.firstOrNull { it.name?.asString() == "wrapInTheme" }?.value as? Boolean) ?: true,
+            previewAnnotationFqns = (ann.arguments.firstOrNull { it.name?.asString() == "previews" }?.value as? List<*>)
+                .orEmpty()
+                .mapNotNull(::toFqn),
+            providers = (ann.arguments.firstOrNull { it.name?.asString() == "providers" }?.value as? List<*>)
+                .orEmpty()
+                .mapNotNull(::toProviderEntry),
+        )
 
         private fun toFqn(value: Any?): String? = when (value) {
             is KSType -> value.declaration.qualifiedName?.asString()
             is KSClassDeclaration -> value.qualifiedName?.asString()
             else -> null
+        }
+
+        private fun toProviderEntry(value: Any?): PoseProviderEntry? {
+            val nested = value as? KSAnnotation ?: return null
+            val providerFqn = nested.arguments
+                .firstOrNull { it.name?.asString() == "provider" }
+                ?.value?.let(::toFqn) ?: return null
+            val forParam = (nested.arguments.firstOrNull { it.name?.asString() == "forParam" }?.value as? String).orEmpty()
+            return PoseProviderEntry(providerFqn = providerFqn, forParam = forParam)
         }
     }
 }
