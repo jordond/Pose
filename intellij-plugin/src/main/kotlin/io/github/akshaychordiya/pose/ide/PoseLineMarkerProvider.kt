@@ -44,7 +44,7 @@ class PoseLineMarkerProvider : RelatedItemLineMarkerProvider() {
     }
 
     private fun tooltipFor(previews: List<GeneratedPreview>): String = when (previews.size) {
-        1 -> "Open ${previews.single().simpleName}"
+        1 -> "Open Pose preview: ${previews.single().simpleName}"
         else -> "${previews.size} Pose previews — click to choose"
     }
 }

@@ -78,10 +78,19 @@ intellijPlatform {
             just removes the need to open <code>build/generated/</code> by hand.</p>
             """.trimIndent()
         )
-        // Marketplace's "What's New" tab. Update per release; can be sourced from
-        // CHANGELOG.md later once the format stabilises.
+        // Marketplace's "What's New" tab — historical entries stack top-down so
+        // returning users see what's new since the version they installed.
         changeNotes.set(
             """
+            <h3>0.4.1</h3>
+            <ul>
+              <li>Clearer gutter tooltip - <code>Open Pose preview: &lt;name&gt;</code>
+                  instead of just <code>Open &lt;name&gt;</code>, so the click affordance
+                  matches the icon's Pose branding.</li>
+              <li>Internal: added unit test coverage for the line marker provider
+                  (no-file / single-match / sealed-fan-out / stale-file scenarios).</li>
+            </ul>
+
             <h3>0.4.0 - first Marketplace release</h3>
             <ul>
               <li>Gutter icon next to every composable that has a Pose-generated preview</li>
