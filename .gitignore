@@ -12,6 +12,11 @@ build/
 local.properties
 captures/
 
+# IntelliJ Platform Gradle plugin — caches downloaded IDE distributions (hundreds of MB)
+# and the sandbox scratch dir used by :intellij-plugin:runIde.
+.intellijPlatform/
+intellij-plugin/build-idea-sandbox/
+
 # OS
 .DS_Store
 Thumbs.db

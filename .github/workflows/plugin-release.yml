@@ -1,0 +1,52 @@
+name: Plugin release
+
+# The IntelliJ plugin (Marketplace) releases INDEPENDENTLY from the KSP artifacts
+# (Maven Central). Two triggers:
+#   - `plugin-v*` tag push          — normal release flow
+#   - manual workflow_dispatch      — ad hoc, from the Actions tab UI
+#
+# The main `v*` release workflow deliberately does NOT touch the plugin — devs
+# iterate the processor much more often than the plugin, and we don't want every
+# processor patch republishing the (unchanged) plugin.
+
+on:
+  push:
+    tags: ['plugin-v*']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Marketplace channel'
+        required: false
+        default: 'default'
+        type: choice
+        options:
+          - default
+          - eap
+          - beta
+
+jobs:
+  publish:
+    name: Publish plugin to JetBrains Marketplace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Cheap smoke check before we blast the zip at Marketplace.
+      - name: Build plugin
+        run: ./gradlew --no-daemon :intellij-plugin:buildPlugin
+
+      - name: Publish
+        env:
+          MARKETPLACE_TOKEN: ${{ secrets.MARKETPLACE_TOKEN }}
+          # workflow_dispatch supplies a channel; tag pushes default to "default".
+          ORG_GRADLE_PROJECT_intellijPlatformPublishingChannel: ${{ github.event.inputs.channel || 'default' }}
+        run: ./gradlew --no-daemon :intellij-plugin:publishPlugin

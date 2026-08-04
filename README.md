@@ -29,8 +29,6 @@ internal fun LoginContent__Preview() {
 }
 ```
 
-![Studio preview panel showing Pose-generated previews](docs/images/preview-panel.png)
-
 - Never checked in — regenerates on every build 🔄
 - Always in sync with the composable signature 🎯
 - Zero maintenance 🧘
@@ -41,9 +39,9 @@ internal fun LoginContent__Preview() {
 
 Compose's preview ecosystem is great at **consuming** previews (Showkase, Paparazzi, Roborazzi, Google's screenshot-testing plugin) but has no build-time story for **generating** them.
 
-- Gemini's *Generate Preview* and IDE plugins write source you have to maintain. 🤖
-- Hand-written previews rot the moment the composable signature changes. 📝
-- Pose never touches your source. Files land in `build/generated/`, always fresh. ✍️
+- Gemini's *Generate Preview* and IDE plugins write source you have to maintain 🤖
+- Hand-written previews rot the moment the composable signature changes 📝
+- Pose never touches your source. Files land in `build/generated/`, always fresh ✍️
 
 ## Install 🔧
 
@@ -72,7 +70,7 @@ ksp {
 
 Tested on Kotlin 2.4.x · KSP 2.3.x · AGP 9.2.x.
 
-**About `pose.themeFqName`** — must be a composable with the signature `fun ThemeName(content: @Composable () -> Unit)`. Extras are OK if they're defaulted. Leave unset and Pose skips the theme wrapper (with one build-init warning).
+**About `pose.themeFqName`** - must be a composable with the signature `fun ThemeName(content: @Composable () -> Unit)`. Extras are OK if they're defaulted. Leave unset and Pose skips the theme wrapper (with one build-init warning).
 
 ## Use ✨
 
@@ -83,6 +81,24 @@ Annotate any composable:
 @Composable
 fun MyScreen(state: UiState, onEvent: (Event) -> Unit) { /* … */ }
 ```
+
+### IDE plugin: gutter icons + jump-to-preview 🎨
+
+![Pose's gutter icon in Android Studio, next to a @Pose-annotated composable](docs/images/gutter-icon.png)
+
+Install the companion **Pose IntelliJ plugin** ([latest release](https://github.com/AkshayChordiya/Pose/releases) as a `.zip` today, JetBrains Marketplace listing coming with v0.5.0) to get:
+
+- 👁️ **Gutter icon** next to every composable Pose generates a preview for — both explicit `@Pose` *and* bulk-mode composables without one
+- 🖱️ **Click to jump** into the matching `<Composable>__Preview*` function inside the generated file
+- 🎯 **Popup chooser** for sealed fan-outs — pick `_Loading` / `_Success` / `_Error` and land there directly
+
+Requires Android Studio Ladybug (2024.2) or newer. K1 and K2 modes both supported. Optional but recommended — the KSP processor works standalone; the plugin just removes the need to open `build/generated/` by hand.
+
+**Install from disk** (until the Marketplace listing is live):
+
+1. Download `intellij-plugin-<version>.zip` from the [latest GitHub release](https://github.com/AkshayChordiya/Pose/releases)
+2. `Android Studio → Settings → Plugins → ⚙️ → Install Plugin from Disk…` → select the zip
+3. Restart
 
 ### Sealed states, one preview per subtype 🌿
 
@@ -122,7 +138,7 @@ data class LoginUiState(...) {
 }
 ```
 
-Pose wires it through `@PreviewParameter` automatically. **Write once, benefit everywhere** — every composable that takes `LoginUiState` now shows all variants.
+Pose wires it through `@PreviewParameter` automatically. **Write once, benefit everywhere** - every composable that takes `LoginUiState` now shows all variants.
 
 ### Bring your own `PreviewParameterProvider` 🎁
 
@@ -146,7 +162,7 @@ fun ArticleCard(
 
 Pose walks each entry's `PreviewParameterProvider<T>` supertype, extracts `T`, and matches it against the composable's parameter types. Emits `ArticleSamples().values.first()` inline. Providers stay scoped to this composable — they never leak into others.
 
-**Disambiguating same-typed parameters** — name them explicitly with `forParam`:
+**Disambiguating same-typed parameters** -> name them explicitly with `forParam`:
 
 ```kotlin
 @Pose(providers = [
