@@ -213,6 +213,47 @@ class BulkOptInTest {
     }
 
     @Test
+    fun `bulk mode auto-skips the theme composable identified by pose_themeFqName`() {
+        // In bulk mode, a project's theme composable (say `AppTheme(content: … -> Unit)`)
+        // would otherwise get picked up because it's public + top-level + Unit.
+        // Previewing it renders an empty scope. Auto-skip when its FQN matches
+        // `pose.themeFqName`.
+        val theme = SourceFile.kotlin(
+            "AppTheme.kt",
+            """
+            package sample
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun AppTheme(content: @Composable () -> Unit) { content() }
+            """.trimIndent()
+        )
+        val screen = SourceFile.kotlin(
+            "Screen.kt",
+            """
+            package sample
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun Screen(title: String) { }
+            """.trimIndent()
+        )
+        val result = CompileHarness.compile(
+            sources = listOf(screen, theme),
+            options = bulkOn + mapOf("pose.themeFqName" to "sample.AppTheme"),
+        )
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        // The screen still gets a preview.
+        val screenGen = result.generatedFile("Screen__Preview.kt").readText()
+        assertThat(screenGen).contains("internal fun Screen__Preview()")
+        // The theme does NOT — it was auto-skipped by FQN match.
+        assertThat(result.generatedFiles.any { it.name == "AppTheme__Preview.kt" }).isFalse()
+    }
+
+    @Test
     fun `bulk mode picks up multiple composables in one file`() {
         val source = SourceFile.kotlin(
             "Multi.kt",

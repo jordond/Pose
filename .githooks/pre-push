@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Pre-push verification for Pose.
+#
+# Runs the full build — compile every module, execute every test, assemble the
+# sample-app and the IntelliJ plugin zip. If anything fails, the push is
+# aborted (git exits non-zero for us via `set -e`).
+#
+# Activate this hook once per clone:
+#     git config core.hooksPath .githooks
+#
+# Skip this hook for a single push (emergencies only — CI still gates main):
+#     git push --no-verify
+
+set -euo pipefail
+
+echo "🔍  Pose pre-push verification..."
+echo "     Running full build (compile · test · assemble)."
+echo ""
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+./gradlew --no-daemon --console=plain build :intellij-plugin:buildPlugin
+
+echo ""
+echo "✅  Pre-push verification passed. Pushing."

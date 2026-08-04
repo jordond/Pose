@@ -61,10 +61,13 @@ public class PoseProcessor(
             resolver.getSymbolsWithAnnotation(COMPOSABLE_FQN)
                 .filterIsInstance<KSFunctionDeclaration>()
                 .filter { it.containingFile != null }
-                .filter { fn -> looksLikeBulkCandidate(fn) }
+                .filter(::looksLikeBulkCandidate)
                 .filterNot { fn -> fn.qualifiedName?.asString() in explicitFqns }
                 .filterNot { fn -> fn.hasAnnotationByFqn(POSE_IGNORE_FQN) }
                 .filterNot { fn -> fn.hasAnnotationByShortName("Preview") }
+                // The theme composable IS the wrapper - previewing it would just
+                // render an empty scope. Auto-skip it in bulk mode.
+                .filterNot { fn -> fn.qualifiedName?.asString() == options.themeFqName }
                 .toList()
         } else {
             emptyList()

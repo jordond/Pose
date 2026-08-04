@@ -82,6 +82,17 @@ intellijPlatform {
         // returning users see what's new since the version they installed.
         changeNotes.set(
             """
+            <h3>0.4.2</h3>
+            <ul>
+              <li>KSP side: bulk mode now auto-skips the theme composable identified
+                  by <code>pose.themeFqName</code> - no more <code>@PoseIgnore</code>
+                  boilerplate on your <code>AppTheme</code>.</li>
+              <li>Verified working on Compose Multiplatform / Kotlin Multiplatform
+                  projects - wire the processor into your <code>ksp&lt;Target&gt;Main</code>
+                  configuration.</li>
+              <li>Plugin binary unchanged from 0.4.1.</li>
+            </ul>
+
             <h3>0.4.1</h3>
             <ul>
               <li>Clearer gutter tooltip - <code>Open Pose preview: &lt;name&gt;</code>

@@ -2,6 +2,22 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.4.2] - Theme auto-skip + CMP/KMP verified
+
+### Added
+
+- **Auto-skip the theme composable in bulk mode.** When `pose.generatePreviewsForAllPublicComposables = true`, the composable whose FQN matches `pose.themeFqName` is now skipped automatically — no more `@PoseIgnore` boilerplate on `AppTheme`. Reason: previewing the theme just renders its empty content lambda.
+- IDE plugin now available to make it easy to quickly see the generated previews
+- New `BulkOptInTest` case locks in the theme-auto-skip behaviour.
+
+### Verified
+
+- Pose runs cleanly on **Compose Multiplatform / Kotlin Multiplatform** projects. `androidx.compose.ui.tooling.preview.Preview` is now the shared annotation FQN across Android and CMP; the emission works on both. Wire the processor into `ksp<Target>Main` in the target module's `build.gradle.kts`.
+
+### Docs
+
+- README's "Limitations" section replaces "Compose Multiplatform — Android-only for v1" with a new "Platforms 🌍" section listing Android and KMP/CMP as first-class.
+
 ## [0.4.1] - IntelliJ plugin polish
 
 Plugin-only release; no KSP artifact changes. Published to JetBrains Marketplace via the new `plugin-v*` tag flow (KSP artifacts on Central stay at 0.4.0).
@@ -64,6 +80,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.4.2]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.2
 [0.4.1]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.1
 [0.4.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.0
 [0.3.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.3.0

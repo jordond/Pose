@@ -49,8 +49,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.4.0")
-    kspDebug("io.github.akshaychordiya.pose:processor:0.4.0")
+    implementation("io.github.akshaychordiya.pose:annotations:0.4.2")
+    kspDebug("io.github.akshaychordiya.pose:processor:0.4.2")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -86,19 +86,18 @@ fun MyScreen(state: UiState, onEvent: (Event) -> Unit) { /* … */ }
 
 ![Pose's gutter icon in Android Studio, next to a @Pose-annotated composable](docs/images/gutter-icon.png)
 
-Install the companion **Pose IntelliJ plugin** ([latest release](https://github.com/AkshayChordiya/Pose/releases) as a `.zip` today, JetBrains Marketplace listing coming with v0.5.0) to get:
+1. Install the companion **Pose IntelliJ plugin** from the JetBrains Marketplace
+2. Search *Pose - Auto generate Compose Previews* in `Settings → Plugins → Marketplace`
+3. Click **Install**
+4. Restart your IDE
 
-- 👁️ **Gutter icon** next to every composable Pose generates a preview for — both explicit `@Pose` *and* bulk-mode composables without one
+You then get:
+
+- 👁️ **Gutter icon** next to every composable Pose generates a preview for both explicit `@Pose` *and* bulk-mode composables without one
 - 🖱️ **Click to jump** into the matching `<Composable>__Preview*` function inside the generated file
 - 🎯 **Popup chooser** for sealed fan-outs — pick `_Loading` / `_Success` / `_Error` and land there directly
 
-Requires Android Studio Ladybug (2024.2) or newer. K1 and K2 modes both supported. Optional but recommended — the KSP processor works standalone; the plugin just removes the need to open `build/generated/` by hand.
-
-**Install from disk** (until the Marketplace listing is live):
-
-1. Download `intellij-plugin-<version>.zip` from the [latest GitHub release](https://github.com/AkshayChordiya/Pose/releases)
-2. `Android Studio → Settings → Plugins → ⚙️ → Install Plugin from Disk…` → select the zip
-3. Restart
+Requires Android Studio Ladybug (2024.2) or newer. K1 and K2 modes both supported. Optional but recommended - the KSP processor works standalone; the plugin just removes the need to open `build/generated/` by hand.
 
 ### Sealed states, one preview per subtype 🌿
 
@@ -120,7 +119,7 @@ Emits three named preview functions:
 - `HomeContent__Preview_Success`
 - `HomeContent__Preview_Error`
 
-Studio labels each render by its subtype name — the preview panel reads cleanly at a glance.
+Studio labels each render by its subtype name - the preview panel reads cleanly at a glance.
 
 ### Rich sample data with `companion.previewSamples` 🧪
 
@@ -140,7 +139,7 @@ data class LoginUiState(...) {
 
 Pose wires it through `@PreviewParameter` automatically. **Write once, benefit everywhere** - every composable that takes `LoginUiState` now shows all variants.
 
-### Bring your own `PreviewParameterProvider` 🎁
+### Bring your own `PreviewParameterProvider` 🧺
 
 Don't own the type? Want composable-scoped sample data without polluting the model? Attach a `PreviewParameterProvider<T>` at the annotation:
 
@@ -195,7 +194,7 @@ fun MyChip(...) { /* … */ }
 
 Adding a new dimension (dynamic-color, foldables, tablet-size) is a **one-line edit** that ripples through every generated preview. Default is Pose's own light + dark pair with `showBackground = true`.
 
-## Snapshot testing — the multiplier 📸
+## Snapshot testing - the multiplier 📸
 
 Every `@Pose` composable becomes a **free visual regression test** with Paparazzi, Roborazzi, or Google's `com.android.compose.screenshot` — with **zero extra test code**.
 
@@ -294,12 +293,15 @@ Pose also skips any composable that already carries `@Preview`, and honors expli
 | `pose.maxPreviewsPerComposable`                     | `8`     | Cap on total previews per composable                                                        |
 | `pose.verboseSkips`                                 | `false` | Log every skip decision                                                                     |
 
+## Platforms 🌍
+
+- **Android** — first-class, tested end-to-end via the sample-app.
+- **Kotlin Multiplatform / Compose Multiplatform** — verified working on real CMP + KMP projects. `androidx.compose.ui.tooling.preview.Preview` unified across Android and CMP, so Pose's emission works on both. Wire the processor into the appropriate `ksp<Target>Main` configuration in your module's `build.gradle.kts`.
+
 ## Limitations 🚧
 
-- **No preview marker next to your composable** — KSP can only emit new files, so generated previews live in `build/generated/`. Studio's gutter icon appears there, not next to your source. Use split-editor or "Go to Declaration" on `@Pose`. A companion IntelliJ plugin is on the roadmap for v0.5.0.
 - **Body-level analysis** — Pose only sees signatures. A composable that internally calls `hiltViewModel()` or reads a `LocalContext` may crash at preview render. Hand-write a `@Preview` for those (Pose skips), or refactor to stateless.
-- **Compose Multiplatform** — Android-only for v1.
-- **Other v1 non-goals** — ViewModel/Hilt params (refused by design), runtime fake-data libs, context params, default-expression forwarding ([KSP #268](https://github.com/google/ksp/issues/268)).
+- **Other non-goals** — ViewModel/Hilt params (refused by design — split into `Screen(vm) / ScreenContent(state, onEvent)` per [PG003](docs/refusals.md#pg003)), runtime fake-data libs, context params, default-expression forwarding ([KSP #268](https://github.com/google/ksp/issues/268)).
 
 ## Contributing 🤝
 
