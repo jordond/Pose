@@ -67,7 +67,7 @@ Both release workflows create the GitHub Release for you, with notes lifted stra
 
 - **Title** — the section's subtitle, e.g. `0.5.0 — LocalInspectionMode + custom CompositionLocals`
 - **Body** — everything under that `## [<version>]` heading, up to the next one
-- **Assets** — the plugin workflow attaches `intellij-plugin-<version>.zip`, so the README's install-from-disk path has something to point at
+- **Assets** — none. The Marketplace is the single install path for the plugin and keeps its own version history, so Releases carry the changelog rather than a downloadable build. KSP artifacts live on Central for the same reason.
 
 The extraction runs *before* the publish step and **fails the build if `CHANGELOG.md` has no section for the version being tagged** — a red build beats a release with empty notes. Preview exactly what a release will say before you tag:
 
