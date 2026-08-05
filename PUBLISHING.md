@@ -51,7 +51,8 @@ Once the setup above is complete, cutting a release is:
 ```bash
 # 1. Bump version in root build.gradle.kts (drop the -SNAPSHOT)
 #    e.g. "0.4.0-SNAPSHOT" → "0.4.0"
-# 2. Update CHANGELOG.md with the release notes.
+# 2. Update CHANGELOG.md with a `## [<version>]` section — REQUIRED, the
+#    release workflow fails without it (see GitHub Releases below).
 # 3. Commit + tag + push.
 git commit -am "Release 0.4.0"
 git tag v0.4.0
@@ -59,6 +60,23 @@ git push origin main --tags
 ```
 
 GitHub Actions picks up the tag, runs `publishAndReleaseToMavenCentral`, and the artifacts appear on `search.maven.org` within ~30 minutes.
+
+### GitHub Releases are automatic
+
+Both release workflows create the GitHub Release for you, with notes lifted straight out of `CHANGELOG.md`:
+
+- **Title** — the section's subtitle, e.g. `0.5.0 — LocalInspectionMode + custom CompositionLocals`
+- **Body** — everything under that `## [<version>]` heading, up to the next one
+- **Assets** — the plugin workflow attaches `intellij-plugin-<version>.zip`, so the README's install-from-disk path has something to point at
+
+The extraction runs *before* the publish step and **fails the build if `CHANGELOG.md` has no section for the version being tagged** — a red build beats a release with empty notes. Preview exactly what a release will say before you tag:
+
+```bash
+.github/scripts/extract-changelog.sh 0.5.0 --title
+.github/scripts/extract-changelog.sh 0.5.0
+```
+
+For the KSP workflow the Release is created *after* Central accepts the upload, so a Release never announces artifacts that failed to publish. Manual `workflow_dispatch` runs of the plugin workflow skip the Release step — there's no tag to attach one to.
 
 After the release cuts:
 
