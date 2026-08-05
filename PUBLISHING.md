@@ -121,12 +121,14 @@ Sources and Javadoc JARs are published alongside each artifact.
 
 The plugin releases **independently** from the KSP artifacts. The processor iterates faster (new emitters, bug fixes, refuse-list additions); the plugin's UX story is more stable and republishing it on every processor patch would be noise. Two separate cadences, two separate tag conventions.
 
+Live listing: **[plugins.jetbrains.com/plugin/33344](https://plugins.jetbrains.com/plugin/33344-pose--auto-generate-compose-previews)** (plugin id `33344`, xmlId `io.github.akshaychordiya.pose`).
+
 ## Cadences
 
-| Change lands on… | Tag | Workflow file | Publishes |
-|---|---|---|---|
-| KSP annotations / processor | `v0.5.0`, `v0.5.1`, … | `release.yml` | Maven Central |
-| IntelliJ plugin | `plugin-v0.4.0`, `plugin-v0.5.0`, … | `plugin-release.yml` | JetBrains Marketplace |
+| Change lands on…            | Tag                                 | Workflow file        | Publishes             |
+|-----------------------------|-------------------------------------|----------------------|-----------------------|
+| KSP annotations / processor | `v0.5.0`, `v0.5.1`, …               | `release.yml`        | Maven Central         |
+| IntelliJ plugin             | `plugin-v0.4.0`, `plugin-v0.5.0`, … | `plugin-release.yml` | JetBrains Marketplace |
 
 `plugin-release.yml` also accepts a **manual `workflow_dispatch`** — trigger it from the Actions tab UI when you want to push a plugin update without minting a tag.
 

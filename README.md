@@ -1,6 +1,7 @@
 # Pose 🏞️✨
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.akshaychordiya.pose/annotations?color=4C1&label=Maven%20Central&logo=apachemaven)](https://central.sonatype.com/namespace/io.github.akshaychordiya.pose)
+[![JetBrains Plugin](https://img.shields.io/jetbrains/plugin/v/33344?color=4C1&label=IntelliJ%20Plugin&logo=jetbrains)](https://plugins.jetbrains.com/plugin/33344-pose--auto-generate-compose-previews)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![CI](https://github.com/AkshayChordiya/Pose/actions/workflows/ci.yml/badge.svg)](https://github.com/AkshayChordiya/Pose/actions/workflows/ci.yml)
@@ -86,8 +87,10 @@ fun MyScreen(state: UiState, onEvent: (Event) -> Unit) { /* … */ }
 
 ![Pose's gutter icon in Android Studio, next to a @Pose-annotated composable](docs/images/gutter-icon.png)
 
-1. Install the companion **Pose IntelliJ plugin** from the JetBrains Marketplace
-2. Search *Pose - Auto generate Compose Previews* in `Settings → Plugins → Marketplace`
+Install the companion **[Pose IntelliJ plugin](https://plugins.jetbrains.com/plugin/33344-pose--auto-generate-compose-previews)** — either from the Marketplace page directly, or from inside your IDE:
+
+1. `Settings → Plugins → Marketplace`
+2. Search *Pose - Auto generate Compose Previews*
 3. Click **Install**
 4. Restart your IDE
 
