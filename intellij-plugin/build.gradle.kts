@@ -82,6 +82,17 @@ intellijPlatform {
         // returning users see what's new since the version they installed.
         changeNotes.set(
             """
+            <h3>0.5.0</h3>
+            <ul>
+              <li>KSP side: generated previews now provide
+                  <code>LocalInspectionMode = true</code>, so composables that branch on it
+                  render their preview path in snapshot tests (Paparazzi / Roborazzi) the
+                  same way they already do in Studio's preview panel.</li>
+              <li>KSP side: new <code>pose.previewWrapperFqName</code> option for supplying
+                  arbitrary <code>CompositionLocal</code>s to every generated preview.</li>
+              <li>Plugin binary unchanged from 0.4.3.</li>
+            </ul>
+
             <h3>0.4.3</h3>
             <ul>
               <li><b>KMP / CMP support for gutter icons.</b> The generated-file locator now

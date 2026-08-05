@@ -13,7 +13,7 @@ plugins {
 
 allprojects {
     group = "io.github.akshaychordiya.pose"
-    version = "0.4.3"
+    version = "0.5.0"
 
     plugins.withId("com.vanniktech.maven.publish") {
         extensions.configure<MavenPublishBaseExtension> {

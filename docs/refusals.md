@@ -156,6 +156,21 @@ Previews render `Unit`-returning composables.
 
 ---
 
+## PG018 — `pose.previewWrapperFqName` is invalid
+
+The FQN passed in the KSP option doesn't resolve to a top-level composable on the compile classpath.
+
+**Fix:** confirm the FQN is correct, the wrapper is a top-level `@Composable`, and its module is on the current module's classpath. Expected signature:
+
+```kotlin
+@Composable
+fun PreviewWrapper(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalMyThing provides fake()) { content() }
+}
+```
+
+---
+
 ## PG017 — `previews[]` entry is not annotated `@Preview`
 
 Every class listed in `@Pose(previews = [...])` must itself be annotated with `@Preview` (directly or transitively via multipreview annotations).

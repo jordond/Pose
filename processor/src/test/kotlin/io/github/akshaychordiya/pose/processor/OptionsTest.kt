@@ -64,4 +64,27 @@ class OptionsTest {
         val opt = Options.from(mapOf("pose.strict" to "true"))
         assertThat(opt.strict).isTrue()
     }
+
+    @Test
+    fun `provideInspectionMode defaults to true`() {
+        assertThat(Options.from(emptyMap()).provideInspectionMode).isTrue()
+    }
+
+    @Test
+    fun `provideInspectionMode can be turned off`() {
+        val opt = Options.from(mapOf("pose.provideInspectionMode" to "false"))
+        assertThat(opt.provideInspectionMode).isFalse()
+    }
+
+    @Test
+    fun `previewWrapperFqName defaults to null and blank is treated as unset`() {
+        assertThat(Options.from(emptyMap()).previewWrapperFqName).isNull()
+        assertThat(Options.from(mapOf("pose.previewWrapperFqName" to "   ")).previewWrapperFqName).isNull()
+    }
+
+    @Test
+    fun `previewWrapperFqName is parsed`() {
+        val opt = Options.from(mapOf("pose.previewWrapperFqName" to "com.example.PreviewWrapper"))
+        assertThat(opt.previewWrapperFqName).isEqualTo("com.example.PreviewWrapper")
+    }
 }

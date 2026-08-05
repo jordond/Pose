@@ -49,8 +49,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.4.2")
-    kspDebug("io.github.akshaychordiya.pose:processor:0.4.2")
+    implementation("io.github.akshaychordiya.pose:annotations:0.5.0")
+    kspDebug("io.github.akshaychordiya.pose:processor:0.5.0")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -194,6 +194,58 @@ fun MyChip(...) { /* … */ }
 
 Adding a new dimension (dynamic-color, foldables, tablet-size) is a **one-line edit** that ripples through every generated preview. Default is Pose's own light + dark pair with `showBackground = true`.
 
+### `LocalInspectionMode` and custom CompositionLocals 🔌
+
+Generated previews are wrapped in `CompositionLocalProvider(LocalInspectionMode provides true)` automatically:
+
+```kotlin
+internal fun PhotoViewer__Preview() {
+  CompositionLocalProvider(LocalInspectionMode provides true) {
+    AppTheme {
+      PhotoViewer(url = "Url")
+    }
+  }
+}
+```
+
+**Why this matters** — Android Studio's preview renderer sets `LocalInspectionMode` for you, but snapshot runners (Paparazzi, Roborazzi, `com.android.compose.screenshot`) leave it `false`. A composable that branches on it:
+
+```kotlin
+@Composable
+fun PhotoViewer(url: String) {
+    if (LocalInspectionMode.current) {
+        Image(painterResource(R.drawable.placeholder), null)   // static fallback
+    } else {
+        AsyncImage(model = url, contentDescription = null)      // real network call
+    }
+}
+```
+
+…would render correctly in Studio but fall through to the production path in a snapshot test — attempting a network fetch with a dummy URL and producing a blank image. Pose provides the local so both environments agree.
+
+Opt out with `arg("pose.provideInspectionMode", "false")`.
+
+**Need other CompositionLocals?** Point `pose.previewWrapperFqName` at your own wrapper composable — same trailing-lambda contract as `pose.themeFqName`:
+
+```kotlin
+@Composable
+fun PreviewWrapper(content: @Composable () -> Unit) {
+    CompositionLocalProvider(
+        LocalImageLoader provides fakeImageLoader(),
+        LocalAnalytics provides NoOpAnalytics,
+    ) { content() }
+}
+```
+
+```kotlin
+ksp {
+    arg("pose.themeFqName", "com.example.ui.AppTheme")
+    arg("pose.previewWrapperFqName", "com.example.ui.PreviewWrapper")
+}
+```
+
+Nesting, outermost first: **inspection-mode provider → your wrapper → theme → target composable**. Your wrapper sits inside Pose's provider deliberately — innermost `CompositionLocalProvider` wins, so you keep the final say over any local Pose also sets.
+
 ## Snapshot testing - the multiplier 📸
 
 Every `@Pose` composable becomes a **free visual regression test** with Paparazzi, Roborazzi, or Google's `com.android.compose.screenshot` — with **zero extra test code**.
@@ -292,6 +344,8 @@ Pose also skips any composable that already carries `@Preview`, and honors expli
 | `pose.collectionSize`                               | `2`     | Elements emitted for `List` / `Set`                                                         |
 | `pose.maxPreviewsPerComposable`                     | `8`     | Cap on total previews per composable                                                        |
 | `pose.verboseSkips`                                 | `false` | Log every skip decision                                                                     |
+| `pose.provideInspectionMode`                        | `true`  | Wrap previews in `CompositionLocalProvider(LocalInspectionMode provides true)`               |
+| `pose.previewWrapperFqName`                         | *unset* | Composable wrapping every preview, for supplying arbitrary `CompositionLocal`s              |
 
 ## Platforms 🌍
 

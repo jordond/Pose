@@ -17,6 +17,32 @@ public data class Options(
      * warnings so one unpreviewable composable doesn't fail the whole build.
      */
     val generatePreviewsForAllPublicComposables: Boolean,
+    /**
+     * Wrap generated previews in
+     * `CompositionLocalProvider(LocalInspectionMode provides true)`.
+     *
+     * Android Studio's preview renderer already sets this, but snapshot-test
+     * runners (Paparazzi, Roborazzi) do **not** — so a composable branching on
+     * `LocalInspectionMode.current` would take its production path there and
+     * try to hit the network for images. Generated previews are previews in
+     * every environment, so this defaults to `true`.
+     *
+     * Skipped silently when `LocalInspectionMode` isn't on the compile
+     * classpath (a module with `compose-runtime` but no `compose-ui`).
+     */
+    val provideInspectionMode: Boolean,
+    /**
+     * FQN of a composable that wraps every generated preview, for supplying
+     * arbitrary `CompositionLocal`s (fake image loaders, locale providers,
+     * design-system ambients, …).
+     *
+     * Same trailing-lambda contract as [themeFqName]:
+     * `fun PreviewWrapper(content: @Composable () -> Unit)`.
+     *
+     * Nests *outside* the theme but *inside* Pose's inspection-mode provider,
+     * so the wrapper can override `LocalInspectionMode` if it needs to.
+     */
+    val previewWrapperFqName: String?,
 ) {
     public companion object {
         public fun from(raw: Map<String, String>): Options {
@@ -32,6 +58,8 @@ public data class Options(
                 maxPreviewsPerComposable = raw["pose.maxPreviewsPerComposable"]?.toIntOrNull() ?: 8,
                 verboseSkips = raw["pose.verboseSkips"]?.toBooleanStrictOrNull() ?: false,
                 generatePreviewsForAllPublicComposables = bulk,
+                provideInspectionMode = raw["pose.provideInspectionMode"]?.toBooleanStrictOrNull() ?: true,
+                previewWrapperFqName = raw["pose.previewWrapperFqName"]?.takeIf(String::isNotBlank),
             )
         }
     }

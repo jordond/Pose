@@ -65,6 +65,38 @@ internal object CompileHarness {
                 AnnotationTarget.PROPERTY_GETTER,
             )
             annotation class Composable
+
+            // Minimal CompositionLocal machinery — enough for the generated
+            // `CompositionLocalProvider(LocalInspectionMode provides true) { … }`
+            // wrapper to compile in tests.
+            class ProvidedValue<T>(val value: T)
+
+            abstract class CompositionLocal<T>(val defaultValue: T) {
+                val current: T get() = defaultValue
+                infix fun provides(value: T): ProvidedValue<T> = ProvidedValue(value)
+            }
+
+            class StaticProvidableCompositionLocal<T>(defaultValue: T) : CompositionLocal<T>(defaultValue)
+
+            fun <T> staticCompositionLocalOf(defaultFactory: () -> T): StaticProvidableCompositionLocal<T> =
+                StaticProvidableCompositionLocal(defaultFactory())
+
+            @Composable
+            fun CompositionLocalProvider(vararg values: ProvidedValue<*>, content: @Composable () -> Unit) {
+                content()
+            }
+            """.trimIndent()
+        ),
+        SourceFile.kotlin(
+            "PlatformStubs.kt",
+            """
+            @file:Suppress("unused")
+
+            package androidx.compose.ui.platform
+
+            import androidx.compose.runtime.staticCompositionLocalOf
+
+            val LocalInspectionMode = staticCompositionLocalOf { false }
             """.trimIndent()
         ),
         SourceFile.kotlin(

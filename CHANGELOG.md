@@ -2,6 +2,24 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.5.0] - LocalInspectionMode + custom CompositionLocals
+
+### Added
+
+- **Generated previews now provide `LocalInspectionMode = true`.** Every generated preview is wrapped in `CompositionLocalProvider(LocalInspectionMode provides true)`. Studio's preview renderer already sets this, but snapshot runners (Paparazzi, Roborazzi, `com.android.compose.screenshot`) leave it `false` — so a composable branching on `LocalInspectionMode.current` took its production path there, attempting real network calls with dummy URLs and producing blank snapshots. Opt out with `pose.provideInspectionMode = false`.
+- **`pose.previewWrapperFqName`** - point at your own composable to supply arbitrary `CompositionLocal`s (fake image loaders, no-op analytics, locale providers). Same trailing-lambda contract as `pose.themeFqName`. Nesting, outermost first: inspection-mode provider → your wrapper → theme → target. The wrapper sits inside Pose's provider so it keeps the final say over any local Pose also sets.
+- `PG018` diagnostic + [refusal-catalog entry](docs/refusals.md#pg018) for an unresolvable `previewWrapperFqName`.
+
+### Changed
+
+- **Generated output changes for every user** - the extra `CompositionLocalProvider` layer appears in all generated previews. Behaviourally a no-op in Studio (which already sets the local); the difference shows up in snapshot tests, which is the point. No action needed unless you were relying on snapshot tests exercising the non-inspection path — in that case set `pose.provideInspectionMode = false`.
+- Emission is skipped silently when `androidx.compose.ui.platform.LocalInspectionMode` isn't on the compile classpath (a module with `compose-runtime` but no `compose-ui`), so no build can break on the new reference.
+
+### Tests
+
+- New `InspectionModeTest` — 6 cases covering default-on, opt-out, nesting order vs the theme, wrapper emission, full four-layer nesting order, and the PG018 refusal.
+- 4 new `OptionsTest` cases for the two new options. 60 processor tests total.
+
 ## [0.4.3] - KMP gutter icons
 
 Plugin-only release; no KSP artifact changes.
@@ -89,6 +107,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.5.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.5.0
 [0.4.3]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.3
 [0.4.2]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.2
 [0.4.1]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.1

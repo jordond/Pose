@@ -20,7 +20,8 @@ public enum class DiagnosticCode(public val message: String) {
     PG013("hand-written @Preview detected — skipping generation"),
     PG014("@Pose applied to a non-@Composable function"),
     PG015("@Pose applied to a function that does not return Unit"),
-    PG017("previews[] entry is not annotated @Preview");
+    PG017("previews[] entry is not annotated @Preview"),
+    PG018("pose.previewWrapperFqName is invalid");
 
     /**
      * Stable deep-link into the refusal-catalog docs. Anchors are lowercased

@@ -36,20 +36,39 @@ public class PoseProcessor(
         // Validate `pose.themeFqName` once per round. A theme is a top-level
         // @Composable function; may also be an invokable class in rare cases.
         options.themeFqName?.let { themeFqn ->
-            val fnFound = resolver.getFunctionDeclarationsByName(
-                resolver.getKSNameFromString(themeFqn),
-                includeTopLevel = true,
-            ).any()
-            val classFound = resolver.getClassDeclarationByName(
-                resolver.getKSNameFromString(themeFqn)
-            ) != null
-            if (!fnFound && !classFound) {
+            if (!resolver.resolvesToComposableOrClass(themeFqn)) {
                 diagnostics.hardError(
                     DiagnosticCode.PG011, node = null,
                     "themeFqName `$themeFqn` does not resolve to a top-level composable or class on the compile classpath.",
                 )
                 return emptyList()
             }
+        }
+
+        options.previewWrapperFqName?.let { wrapperFqn ->
+            if (!resolver.resolvesToComposableOrClass(wrapperFqn)) {
+                diagnostics.hardError(
+                    DiagnosticCode.PG018, node = null,
+                    "previewWrapperFqName `$wrapperFqn` does not resolve to a top-level composable on the compile classpath. " +
+                        "Expected signature: `fun ${wrapperFqn.substringAfterLast('.')}(content: @Composable () -> Unit)`.",
+                )
+                return emptyList()
+            }
+        }
+
+        // `LocalInspectionMode` lives in compose-ui, not compose-runtime. A module
+        // could plausibly have the latter without the former, so gate the emission
+        // on it actually resolving rather than assuming.
+        val inspectionModeAvailable = resolver.getPropertyDeclarationByName(
+            resolver.getKSNameFromString(LOCAL_INSPECTION_MODE_FQN),
+            includeTopLevel = true,
+        ) != null
+        if (options.provideInspectionMode && !inspectionModeAvailable) {
+            diagnostics.info(
+                DiagnosticCode.PG013, node = null,
+                "`$LOCAL_INSPECTION_MODE_FQN` not on the compile classpath — " +
+                    "generated previews will not provide LocalInspectionMode.",
+            )
         }
 
         val explicitSymbols = resolver.getSymbolsWithAnnotation(POSE_FQN)
@@ -74,7 +93,11 @@ public class PoseProcessor(
         }
 
         val planner = PreviewPlanner(resolver = resolver, options = options, diagnostics = diagnostics)
-        val emitter = PreviewFileEmitter(codeGenerator = codeGenerator, options = options)
+        val emitter = PreviewFileEmitter(
+            codeGenerator = codeGenerator,
+            options = options,
+            inspectionModeAvailable = inspectionModeAvailable,
+        )
 
         val plans = mutableListOf<PreviewPlan>()
         for (fn in explicitSymbols) {
@@ -121,6 +144,7 @@ public class PoseProcessor(
         private const val POSE_FQN = "io.github.akshaychordiya.pose.Pose"
         private const val POSE_IGNORE_FQN = "io.github.akshaychordiya.pose.PoseIgnore"
         private const val COMPOSABLE_FQN = "androidx.compose.runtime.Composable"
+        private const val LOCAL_INSPECTION_MODE_FQN = "androidx.compose.ui.platform.LocalInspectionMode"
 
         private val defaultAnnotationArgs = PreviewAnnotationArgs(
             name = "",
@@ -129,6 +153,17 @@ public class PoseProcessor(
             providers = emptyList(),
         )
     }
+}
+
+/**
+ * True when [fqn] names a top-level function (the usual case for a theme or
+ * preview wrapper) or a class (rare — an invokable object).
+ */
+private fun Resolver.resolvesToComposableOrClass(fqn: String): Boolean {
+    val name = getKSNameFromString(fqn)
+    val fnFound = getFunctionDeclarationsByName(name, includeTopLevel = true).any()
+    val classFound = getClassDeclarationByName(name) != null
+    return fnFound || classFound
 }
 
 private fun KSAnnotation.annotationTypeFqn(): String? =
