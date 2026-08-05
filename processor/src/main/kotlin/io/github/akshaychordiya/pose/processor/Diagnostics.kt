@@ -16,7 +16,10 @@ public enum class DiagnosticCode(public val message: String) {
     PG009("composable is private"),
     PG010("total preview count exceeds the configured cap"),
     PG011("pose.themeFqName is invalid"),
-    PG012("previews array is empty"),
+    // PG012 ("previews array is empty") retired in 0.2.0 — an empty `previews`
+    // array became the valid default when Pose started stamping its own
+    // light+dark pair. Code intentionally not reused so old build logs stay
+    // unambiguous.
     PG013("hand-written @Preview detected — skipping generation"),
     PG014("@Pose applied to a non-@Composable function"),
     PG015("@Pose applied to a function that does not return Unit"),

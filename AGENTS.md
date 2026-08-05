@@ -21,6 +21,10 @@ Full user-facing docs: [`README.md`](README.md). This file is for people (and ag
 | `.github/workflows/` | `ci.yml` runs on every push/PR. `release.yml` fires on `v*` tags (Central). `plugin-release.yml` fires on `plugin-v*` tags or manual dispatch (Marketplace).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `.run/`              | Shared IntelliJ run configurations. Add here rather than in `.idea/` so contributors see them too.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
+| `.githooks/` | `pre-push` runs full verification before any push. Needs one-off activation — see First-time setup below. |
+| `CHANGELOG.md` | Keep a Changelog format. The plugin and the KSP artifacts version independently. |
+| `PUBLISHING.md` | Release scaffolding for both cadences — Sonatype Central (KSP) and JetBrains Marketplace (plugin). |
+
 ## Where each concern lives (processor)
 
 | Concern                                                                                | File                      |
@@ -31,9 +35,19 @@ Full user-facing docs: [`README.md`](README.md). This file is for people (and ag
 | Recursive structural synthesis of values                                               | `SampleResolver`          |
 | Well-known FQN table (Compose value classes, Flow, java.time, refuse list)             | `FqnTable`                |
 | Function-type lambda placeholders (`() -> Unit`, scoped composable lambdas)            | `FunctionTypeSynthesizer` |
-| KotlinPoet-based file emission                                                         | `PreviewFileEmitter`      |
+| KotlinPoet emission + wrapper layers (inspection mode / preview wrapper / theme)       | `PreviewFileEmitter`      |
 | KSP-arg parsing                                                                        | `Options`                 |
 | Diagnostic codes + `strict` routing                                                    | `Diagnostics`             |
+
+## First-time setup
+
+Activate the shared pre-push hook (one-off, per clone - git does not do this automatically):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Every `git push` then runs full verification first and aborts on failure. Emergency bypass: `git push --no-verify` (CI still gates `main`).
 
 ## Build & test - the important gradle tasks
 
