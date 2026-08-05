@@ -39,19 +39,18 @@ internal object GeneratedPreviewLocator {
         // Force a light VFS refresh once — freshly-generated files may not be in the cache yet.
         if (kspRoot.children.isEmpty()) kspRoot.refresh(false, true)
 
-        // Each child of kspRoot is a KSP variant dir (debug/release/…). Pick the first that
-        // contains a matching generated file.
         val packageDir = sourceFile.packageFqName.asString().replace('.', '/')
         val generatedRelPath = "kotlin/$packageDir/${sourceVFile.nameWithoutExtension}__Preview.kt"
 
-        val generatedVFile = kspRoot.children
-            .asSequence()
-            .filter { it.isDirectory }
-            .mapNotNull { it.findFileByRelativePath(generatedRelPath) }
-            .firstOrNull()
+        // KSP output layouts we need to cover:
+        //   Android         →  build/generated/ksp/<variant>/kotlin/…             (1 level below kspRoot)
+        //   KMP commonMain  →  build/generated/ksp/metadata/commonMain/kotlin/…   (2 levels)
+        //   KMP <target>    →  build/generated/ksp/<target>/<sourceSet>/kotlin/…  (2 levels)
+        // Bounded BFS keeps this cheap and works for any future layout up to MAX_DEPTH.
+        val generatedVFile = findGeneratedFile(kspRoot, generatedRelPath)
             ?: run {
                 if (logger.isDebugEnabled) {
-                    logger.debug("[Pose] no generated file at $generatedRelPath under ${kspRoot.path}")
+                    logger.debug("[Pose] no generated file at kspRoot/*/$generatedRelPath under ${kspRoot.path}")
                 }
                 return emptyList()
             }
@@ -88,6 +87,29 @@ internal object GeneratedPreviewLocator {
         }
         return null
     }
+
+    /**
+     * Bounded BFS under [kspRoot] looking for the first descendant that contains
+     * [relPath]. Covers both single-nesting (Android's `<variant>/kotlin/…`) and
+     * double-nesting (KMP's `<target>/<sourceSet>/kotlin/…`).
+     *
+     * Depth cap is deliberate — [kspRoot] can hold dozens of variant dirs and we
+     * don't want a runaway walk if the file isn't there.
+     */
+    private fun findGeneratedFile(kspRoot: VirtualFile, relPath: String): VirtualFile? {
+        val queue = ArrayDeque<Pair<VirtualFile, Int>>().apply { addLast(kspRoot to 0) }
+        while (queue.isNotEmpty()) {
+            val (dir, depth) = queue.removeFirst()
+            dir.findFileByRelativePath(relPath)?.let { return it }
+            if (depth >= MAX_KSP_NESTING) continue
+            dir.children.forEach { child ->
+                if (child.isDirectory) queue.addLast(child to depth + 1)
+            }
+        }
+        return null
+    }
+
+    private const val MAX_KSP_NESTING = 3
 }
 
 /** A single generated `<Composable>__Preview*` function that a source composable maps to. */

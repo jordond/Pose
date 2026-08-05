@@ -59,6 +59,37 @@ class PoseLineMarkerProviderTest : BasePlatformTestCase() {
         )
     }
 
+    fun testGutterPresentForKmpCommonMainLayout() {
+        // KMP puts KSP output one level deeper: build/generated/ksp/<target>/<sourceSet>/kotlin/…
+        // For commonMain composables this is `metadata/commonMain/kotlin/…`. The plugin's BFS
+        // walker should still find them.
+        myFixture.tempDirFixture.createFile(
+            "build/generated/ksp/metadata/commonMain/kotlin/com/example/CommonScreen__Preview.kt",
+            """
+            package com.example
+
+            internal fun CommonScreen__Preview() { }
+            """.trimIndent(),
+        )
+        val src = myFixture.tempDirFixture.createFile(
+            "src/commonMain/kotlin/com/example/CommonScreen.kt",
+            """
+            package com.example
+
+            fun CommonScreen() { }
+            """.trimIndent(),
+        )
+        myFixture.configureFromExistingVirtualFile(src)
+        myFixture.doHighlighting()
+
+        val tooltips = posetTooltips()
+        assertEquals("Expected exactly one Pose gutter icon for the commonMain composable", 1, tooltips.size)
+        assertTrue(
+            "Tooltip should reference the specific preview; got: ${tooltips.single()}",
+            tooltips.single().contains("CommonScreen__Preview"),
+        )
+    }
+
     fun testSealedFanOutTooltipReportsMultipleTargets() {
         myFixture.tempDirFixture.createFile(
             "build/generated/ksp/debug/kotlin/com/example/HomeContent__Preview.kt",

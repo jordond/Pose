@@ -2,6 +2,15 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.4.3] - KMP gutter icons
+
+Plugin-only release; no KSP artifact changes.
+
+### Fixed
+
+- **Gutter icons now appear for KMP / CMP composables.** The IntelliJ plugin's generated-file locator only handled Android's flat `build/generated/ksp/<variant>/kotlin/…` layout. Kotlin Multiplatform nests one level deeper — `build/generated/ksp/<target>/<sourceSet>/kotlin/…` (e.g. `metadata/commonMain/kotlin/…`) — so composables declared in `commonMain` had no icon. Replaced the single-level scan with a bounded BFS that covers both layouts.
+- New `PoseLineMarkerProviderTest` case locks in the `metadata/commonMain` path.
+
 ## [0.4.2] - Theme auto-skip + CMP/KMP verified
 
 ### Added
@@ -80,6 +89,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.4.3]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.3
 [0.4.2]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.2
 [0.4.1]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.1
 [0.4.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.0

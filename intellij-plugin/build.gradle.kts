@@ -82,6 +82,17 @@ intellijPlatform {
         // returning users see what's new since the version they installed.
         changeNotes.set(
             """
+            <h3>0.4.3</h3>
+            <ul>
+              <li><b>KMP / CMP support for gutter icons.</b> The generated-file locator now
+                  walks nested KSP output layouts, so composables declared in
+                  <code>commonMain</code> (and any other Kotlin Multiplatform source set)
+                  get their gutter icon. Previously only Android's flat
+                  <code>build/generated/ksp/&lt;variant&gt;/kotlin/</code> layout was found;
+                  KMP nests one level deeper as
+                  <code>build/generated/ksp/&lt;target&gt;/&lt;sourceSet&gt;/kotlin/</code>.</li>
+            </ul>
+
             <h3>0.4.2</h3>
             <ul>
               <li>KSP side: bulk mode now auto-skips the theme composable identified
