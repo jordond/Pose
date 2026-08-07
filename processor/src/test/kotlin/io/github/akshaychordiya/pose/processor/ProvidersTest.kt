@@ -18,7 +18,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             data class Article(val title: String, val body: String)
 
@@ -29,7 +29,7 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [PoseProvider(ArticleSamples::class)])
+            @Pose(providers = [ArticleSamples::class])
             fun ArticleCard(article: Article, onOpen: () -> Unit) { }
             """.trimIndent()
         )
@@ -56,7 +56,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             data class Article(val title: String, val body: String)
 
@@ -67,7 +67,7 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [PoseProvider(ArticleSamples::class)])
+            @Pose(providers = [ArticleSamples::class])
             fun OnlyDomainParam(article: Article) { }
             """.trimIndent()
         )
@@ -82,7 +82,7 @@ class ProvidersTest {
     }
 
     @Test
-    fun `providers with forParam binds by exact parameter name`() {
+    fun `PoseSample binds a provider to one specific parameter`() {
         val source = SourceFile.kotlin(
             "Named.kt",
             """
@@ -91,7 +91,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             data class Article(val title: String, val body: String)
 
@@ -104,11 +104,11 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [
-                PoseProvider(LeftSamples::class,  forParam = "left"),
-                PoseProvider(RightSamples::class, forParam = "right"),
-            ])
-            fun Comparison(left: Article, right: Article) { }
+            @Pose
+            fun Comparison(
+                @PoseSample(LeftSamples::class)  left: Article,
+                @PoseSample(RightSamples::class) right: Article,
+            ) { }
             """.trimIndent()
         )
         val result = CompileHarness.compile(listOf(source))
@@ -118,11 +118,11 @@ class ProvidersTest {
 
         assertThat(generated).contains("left = LeftSamples().values.first()")
         assertThat(generated).contains("right = RightSamples().values.first()")
-        assertThat(generated).contains("@Pose(providers.forParam)")
+        assertThat(generated).contains("@PoseSample")
     }
 
     @Test
-    fun `forParam binding wins over generic-type binding when both would apply`() {
+    fun `PoseSample wins over generic-type binding when both would apply`() {
         val source = SourceFile.kotlin(
             "Override.kt",
             """
@@ -131,7 +131,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             data class Article(val title: String, val body: String)
 
@@ -144,11 +144,11 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [
-                PoseProvider(GenericSamples::class),
-                PoseProvider(SpecificSamples::class, forParam = "featured"),
-            ])
-            fun Feed(regular: Article, featured: Article) { }
+            @Pose(providers = [GenericSamples::class])
+            fun Feed(
+                regular: Article,
+                @PoseSample(SpecificSamples::class) featured: Article,
+            ) { }
             """.trimIndent()
         )
         val result = CompileHarness.compile(listOf(source))
@@ -172,7 +172,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             sealed interface HomeState {
                 data object Loading : HomeState
@@ -186,7 +186,7 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [PoseProvider(HomeSamples::class)])
+            @Pose(providers = [HomeSamples::class])
             fun HomeContent(state: HomeState) { }
             """.trimIndent()
         )
@@ -214,7 +214,7 @@ class ProvidersTest {
             import androidx.compose.runtime.Composable
             import androidx.compose.ui.tooling.preview.PreviewParameterProvider
             import io.github.akshaychordiya.pose.Pose
-            import io.github.akshaychordiya.pose.PoseProvider
+            import io.github.akshaychordiya.pose.PoseSample
 
             data class Article(val title: String, val body: String)
             data class Comment(val text: String)
@@ -224,7 +224,7 @@ class ProvidersTest {
             }
 
             @Composable
-            @Pose(providers = [PoseProvider(CommentSamples::class)])
+            @Pose(providers = [CommentSamples::class])
             fun ArticleOnly(article: Article) { }
             """.trimIndent()
         )

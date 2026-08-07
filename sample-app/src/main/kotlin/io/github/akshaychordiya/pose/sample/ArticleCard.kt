@@ -10,14 +10,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import io.github.akshaychordiya.pose.Pose
-import io.github.akshaychordiya.pose.PoseProvider
+import io.github.akshaychordiya.pose.PoseSample
 
 /**
- * Showcase — `@Pose(providers = [PoseProvider(...)])`.
+ * Showcase — supplying your own `PreviewParameterProvider`.
  *
- * The two forms of `PoseProvider`:
- *  - **Generic-type match** — Pose finds any parameter of the provider's `T`.
- *  - **`forParam` match** — required when two parameters share a type.
+ * Two ways in:
+ *  - `@Pose(providers = [...])` — matched to any parameter of the provider's `T`.
+ *  - `@PoseSample(...)` on a parameter — for when two share a type. Because it
+ *    sits on the parameter, renaming carries it along.
  */
 data class Article(val title: String, val body: String)
 
@@ -34,7 +35,7 @@ class FeaturedArticleSamples : PreviewParameterProvider<Article> {
     )
 }
 
-@Pose(providers = [PoseProvider(ArticleSamples::class)])
+@Pose(providers = [ArticleSamples::class])
 @Composable
 fun ArticleCard(
     article: Article,           // ← auto-matched to ArticleSamples by generic type
@@ -49,12 +50,12 @@ fun ArticleCard(
     }
 }
 
-@Pose(providers = [
-    PoseProvider(ArticleSamples::class,         forParam = "left"),
-    PoseProvider(FeaturedArticleSamples::class, forParam = "right"),
-])
+@Pose
 @Composable
-fun ArticleComparison(left: Article, right: Article) {
+fun ArticleComparison(
+    @PoseSample(ArticleSamples::class)         left: Article,
+    @PoseSample(FeaturedArticleSamples::class) right: Article,
+) {
     Row(Modifier.padding(8.dp)) {
         ArticleCard(article = left, onOpen = {}, modifier = Modifier.padding(end = 8.dp))
         ArticleCard(article = right, onOpen = {})

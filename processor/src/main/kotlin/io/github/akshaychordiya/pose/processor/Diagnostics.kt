@@ -15,7 +15,10 @@ public enum class DiagnosticCode(public val message: String) {
     PG008("composable is a member function; must be top-level or in an object"),
     PG009("composable is private"),
     PG010("total preview count exceeds the configured cap"),
-    PG011("pose.themeFqName is invalid"),
+    // PG011 ("pose.themeFqName is invalid") and PG018 ("pose.previewWrapperFqName
+    // is invalid") retired in 0.6.0 with the string options they validated —
+    // `PoseConfig.Theme` / `.Wrapper` are compiler-checked, so there's nothing left
+    // to validate. Codes intentionally not reused so old build logs stay unambiguous.
     // PG012 ("previews array is empty") retired in 0.2.0 — an empty `previews`
     // array became the valid default when Pose started stamping its own
     // light+dark pair. Code intentionally not reused so old build logs stay
@@ -24,7 +27,11 @@ public enum class DiagnosticCode(public val message: String) {
     PG014("@Pose applied to a non-@Composable function"),
     PG015("@Pose applied to a function that does not return Unit"),
     PG017("previews[] entry is not annotated @Preview"),
-    PG018("pose.previewWrapperFqName is invalid");
+    PG019("more than one @PoseSetup declaration in this module"),
+    PG020("@PoseSetup applied to something that is not an object"),
+    PG021("@PoseSetup object is not reachable from generated code"),
+    PG022("@PoseSetup object does not implement PoseConfig"),
+    PG023("unknown pose.* option");
 
     /**
      * Stable deep-link into the refusal-catalog docs. Anchors are lowercased
@@ -45,14 +52,22 @@ public enum class DiagnosticCode(public val message: String) {
  *
  * `refusal()` respects `strict`: when `false`, every refusal is demoted to a
  * warning and the composable is skipped. Only [hardError] survives the demote
- * — reserve it for problems that would produce broken code if we tried to
- * proceed (misconfigured `pose.themeFqName`, malformed `previews[]` entries).
+ * - reserve it for problems that would produce broken code if we tried to
+ * proceed (a malformed `@PoseSetup` object, bad `previews[]` entries).
  */
 public class Diagnostics(
     private val logger: KSPLogger,
-    private val strict: Boolean,
+    strict: Boolean,
     private val verboseSkips: Boolean,
 ) {
+    /**
+     * Settable because strictness isn't fully known at construction time: a
+     * `@PoseSetup(generateForAllPublicComposables = true)` is only discovered
+     * once processing starts, and bulk mode coerces strict to `false`.
+     */
+    public var strict: Boolean = strict
+        internal set
+
     /** Refusal that always fails the build regardless of `strict`. */
     public fun hardError(code: DiagnosticCode, node: KSNode?, detail: String) {
         logger.error("[${code.name}] ${code.message}. $detail", node)

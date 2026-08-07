@@ -2,7 +2,7 @@ package io.github.akshaychordiya.pose
 
 /**
  * Opts a composable out of Pose preview generation when the module has bulk
- * opt-in turned on (`pose.generatePreviewsForAllPublicComposables = true`).
+ * opt-in turned on via `@PoseSetup(generateForAllPublicComposables = true)`.
  *
  * Meaningless without bulk mode — with explicit opt-in, just omit `@Pose`.
  *

@@ -1,5 +1,8 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    // `PoseConfig` declares @Composable members, so this module's bytecode must be
+    // Compose-compatible, but we use it compilation level.
+    alias(libs.plugins.compose.compiler)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.dokka)
 }
@@ -11,6 +14,11 @@ kotlin {
 
 java {
     withSourcesJar()
+}
+
+dependencies {
+    compileOnly(platform(libs.compose.bom))
+    compileOnly(libs.compose.runtime)
 }
 
 mavenPublishing {

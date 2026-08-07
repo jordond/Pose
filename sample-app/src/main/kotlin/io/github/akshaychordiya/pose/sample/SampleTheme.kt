@@ -7,7 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 /**
- * The composable that `pose.themeFqName` in `build.gradle.kts` points at.
+ * The theme applied to every generated preview, via `SamplePose.Theme`.
  */
 @Composable
 fun SampleTheme(content: @Composable () -> Unit) {

@@ -30,7 +30,7 @@ internal fun LoginContent__Preview() {
 }
 ```
 
-- Never checked in — regenerates on every build 🔄
+- Never checked in - regenerates on every build 🔄
 - Always in sync with the composable signature 🎯
 - Zero maintenance 🧘
 
@@ -50,18 +50,28 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.5.0")
-    kspDebug("io.github.akshaychordiya.pose:processor:0.5.0")
+    implementation("io.github.akshaychordiya.pose:annotations:0.6.0")
+    kspDebug("io.github.akshaychordiya.pose:processor:0.6.0")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
 
-ksp {
-    // Fully qualified name of your Theme composable
-    arg("pose.themeFqName", "com.example.ui.AppTheme")
+```
+
+Then declare one config object per module - this is where your theme goes:
+
+```kotlin
+@PoseSetup
+internal object AppPose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) {
+        AppTheme { content() }      // ← ordinary Kotlin: type-checked, rename-safe
+    }
 }
 ```
+
+Pose never learns your theme's name - it emits `AppPose.Theme { … }` and lets the compiler resolve the rest. Rename `AppTheme` and the IDE refactors this file with everything else.
 
 **Requirements**
 
@@ -71,7 +81,7 @@ ksp {
 
 Tested on Kotlin 2.4.x · KSP 2.3.x · AGP 9.2.x.
 
-**About `pose.themeFqName`** - must be a composable with the signature `fun ThemeName(content: @Composable () -> Unit)`. Extras are OK if they're defaulted. Leave unset and Pose skips the theme wrapper (with one build-init warning).
+**No config object?** Pose still works - you just get no theme wrapper. Everything on `@PoseSetup` has a sensible default.
 
 ## Use ✨
 
@@ -87,7 +97,7 @@ fun MyScreen(state: UiState, onEvent: (Event) -> Unit) { /* … */ }
 
 ![Pose's gutter icon in Android Studio, next to a @Pose-annotated composable](docs/images/gutter-icon.png)
 
-Install the companion **[Pose IntelliJ plugin](https://plugins.jetbrains.com/plugin/33344-pose--auto-generate-compose-previews)** — either from the Marketplace page directly, or from inside your IDE:
+Install the companion **[Pose IntelliJ plugin](https://plugins.jetbrains.com/plugin/33344-pose--auto-generate-compose-previews)** - either from the Marketplace page directly, or from inside your IDE:
 
 1. `Settings → Plugins → Marketplace`
 2. Search *Pose - Auto generate Compose Previews*
@@ -98,7 +108,7 @@ You then get:
 
 - 👁️ **Gutter icon** next to every composable Pose generates a preview for both explicit `@Pose` *and* bulk-mode composables without one
 - 🖱️ **Click to jump** into the matching `<Composable>__Preview*` function inside the generated file
-- 🎯 **Popup chooser** for sealed fan-outs — pick `_Loading` / `_Success` / `_Error` and land there directly
+- 🎯 **Popup chooser** for sealed fan-outs - pick `_Loading` / `_Success` / `_Error` and land there directly
 
 Requires Android Studio Ladybug (2024.2) or newer. K1 and K2 modes both supported. Optional but recommended - the KSP processor works standalone; the plugin just removes the need to open `build/generated/` by hand.
 
@@ -154,7 +164,7 @@ class ArticleSamples : PreviewParameterProvider<Article> {
     )
 }
 
-@Pose(providers = [PoseProvider(ArticleSamples::class)])
+@Pose(providers = [ArticleSamples::class])
 @Composable
 fun ArticleCard(
     article: Article,           // ← auto-matched to ArticleSamples by generic type
@@ -162,20 +172,20 @@ fun ArticleCard(
 ) { /* … */ }
 ```
 
-Pose walks each entry's `PreviewParameterProvider<T>` supertype, extracts `T`, and matches it against the composable's parameter types. Emits `ArticleSamples().values.first()` inline. Providers stay scoped to this composable — they never leak into others.
+Pose walks each entry's `PreviewParameterProvider<T>` supertype, extracts `T`, and matches it against the composable's parameter types. Emits `ArticleSamples().values.first()` inline. Providers stay scoped to this composable - they never leak into others.
 
-**Disambiguating same-typed parameters** -> name them explicitly with `forParam`:
+**Two parameters of the same type?** Annotate them individually with `@PoseSample`:
 
 ```kotlin
-@Pose(providers = [
-    PoseProvider(ArticleSamples::class,         forParam = "left"),
-    PoseProvider(FeaturedArticleSamples::class, forParam = "right"),
-])
+@Pose
 @Composable
-fun ArticleComparison(left: Article, right: Article) { /* … */ }
+fun ArticleComparison(
+    @PoseSample(ArticleSamples::class)         left: Article,
+    @PoseSample(FeaturedArticleSamples::class) right: Article,
+) { /* … */ }
 ```
 
-Named binding always wins over generic-type binding when both would apply.
+The binding lives *on* the parameter, so renaming `left` carries it along - nothing to fall out of sync. `@PoseSample` wins over `providers` when both would apply.
 
 ### Preview matrix from one multipreview annotation 🎛️
 
@@ -211,7 +221,7 @@ internal fun PhotoViewer__Preview() {
 }
 ```
 
-**Why this matters** — Android Studio's preview renderer sets `LocalInspectionMode` for you, but snapshot runners (Paparazzi, Roborazzi, `com.android.compose.screenshot`) leave it `false`. A composable that branches on it:
+**Why this matters** - Android Studio's preview renderer sets `LocalInspectionMode` for you, but snapshot runners (Paparazzi, Roborazzi, `com.android.compose.screenshot`) leave it `false`. A composable that branches on it:
 
 ```kotlin
 @Composable
@@ -224,34 +234,35 @@ fun PhotoViewer(url: String) {
 }
 ```
 
-…would render correctly in Studio but fall through to the production path in a snapshot test — attempting a network fetch with a dummy URL and producing a blank image. Pose provides the local so both environments agree.
+…would render correctly in Studio but fall through to the production path in a snapshot test - attempting a network fetch with a dummy URL and producing a blank image. Pose provides the local so both environments agree.
 
-Opt out with `arg("pose.provideInspectionMode", "false")`.
+Opt out with `@PoseSetup(provideInspectionMode = false)`.
 
-**Need other CompositionLocals?** Point `pose.previewWrapperFqName` at your own wrapper composable — same trailing-lambda contract as `pose.themeFqName`:
+**Need other CompositionLocals?** Override `Wrapper` on your config object — fake image loaders, no-op analytics, locale providers:
 
 ```kotlin
-@Composable
-fun PreviewWrapper(content: @Composable () -> Unit) {
-    CompositionLocalProvider(
-        LocalImageLoader provides fakeImageLoader(),
-        LocalAnalytics provides NoOpAnalytics,
-    ) { content() }
+@PoseSetup
+internal object AppPose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) {
+        AppTheme { content() }
+    }
+
+    @Composable
+    override fun Wrapper(content: @Composable () -> Unit) {
+        CompositionLocalProvider(
+            LocalImageLoader provides fakeImageLoader(),
+            LocalAnalytics provides NoOpAnalytics,
+        ) { content() }
+    }
 }
 ```
 
-```kotlin
-ksp {
-    arg("pose.themeFqName", "com.example.ui.AppTheme")
-    arg("pose.previewWrapperFqName", "com.example.ui.PreviewWrapper")
-}
-```
-
-Nesting, outermost first: **inspection-mode provider → your wrapper → theme → target composable**. Your wrapper sits inside Pose's provider deliberately — innermost `CompositionLocalProvider` wins, so you keep the final say over any local Pose also sets.
+Nesting, outermost first: **inspection-mode provider → your wrapper → theme → target composable**. Your wrapper sits inside Pose's provider deliberately - innermost `CompositionLocalProvider` wins, so you keep the final say over any local Pose also sets.
 
 ## Snapshot testing - the multiplier 📸
 
-Every `@Pose` composable becomes a **free visual regression test** with Paparazzi, Roborazzi, or Google's `com.android.compose.screenshot` — with **zero extra test code**.
+Every `@Pose` composable becomes a **free visual regression test** with Paparazzi, Roborazzi, or Google's `com.android.compose.screenshot` - with **zero extra test code**.
 
 **Google's screenshot testing plugin**
 
@@ -295,7 +306,7 @@ Per parameter, first match wins (top-down):
 
 | Tier         | Rule                                                                                                                |
 |--------------|---------------------------------------------------------------------------------------------------------------------|
-| **Explicit** | `@Pose(providers = [PoseProvider(...)])` binding matches (named `forParam` first, then generic-type)                |
+| **Explicit** | `@PoseSample` on the parameter, else a `@Pose(providers = [...])` generic-type match                |
 | **T0**       | Parameter has a default value - omit the argument                                                                   |
 | **T1**       | Well-known FQN (Compose value classes, `Flow`, `StateFlow`, `java.time`, `Uri`, `Result<T>`, …) - inline expression |
 | **T2**       | Structural synthesis (primitives, enums, data classes, sealed, value classes, function types, collections)          |
@@ -315,16 +326,14 @@ Every refusal message names the composable, gives a concrete fix, and links to t
 
 ### Bulk opt-in for whole-module coverage 🚀
 
-For teams that want previews everywhere without annotating each composable, flip one flag:
+For teams that want previews everywhere without annotating each composable, flip one flag on the config object:
 
 ```kotlin
-ksp {
-    arg("pose.themeFqName", "com.example.ui.AppTheme")
-    arg("pose.generatePreviewsForAllPublicComposables", "true")
-}
+@PoseSetup(generateForAllPublicComposables = true)
+internal object AppPose : PoseConfig { /* … */ }
 ```
 
-Every public top-level `@Composable fun … : Unit` in the module now gets a generated preview. Bulk mode implicitly sets `pose.strict = false` — a single un-fakeable composable turns into a warning-and-skip instead of failing the build.
+Every public top-level `@Composable fun … : Unit` in the module now gets a generated preview. Bulk mode implicitly sets `pose.strict = false` - a single un-fakeable composable turns into a warning-and-skip instead of failing the build.
 
 Opt individual composables back out with `@PoseIgnore`:
 
@@ -336,29 +345,41 @@ fun DebugOverlay(state: DebugState) { /* … */ }   // public but noisy in the p
 
 Pose also skips any composable that already carries `@Preview`, and honors explicit `@Pose(...)` arguments (name / wrapInTheme / previews / providers) when both are present.
 
-## KSP options 📋
+## Configuration 📋
 
-| Option                                              | Default | Behavior                                                                                    |
-|-----------------------------------------------------|---------|---------------------------------------------------------------------------------------------|
-| `pose.themeFqName`                                  | *unset* | Theme composable to wrap generated calls in                                                 |
-| `pose.strict`                                       | `true`  | `false` demotes refusals (PG001, PG002, PG003, PG010, …) to warnings                        |
-| `pose.generatePreviewsForAllPublicComposables`      | `false` | Bulk opt-in — every public composable gets a preview. Implicitly sets `pose.strict = false` |
-| `pose.maxDepth`                                     | `8`     | Cap on recursion depth for structural synthesis                                             |
-| `pose.collectionSize`                               | `2`     | Elements emitted for `List` / `Set`                                                         |
-| `pose.maxPreviewsPerComposable`                     | `8`     | Cap on total previews per composable                                                        |
-| `pose.verboseSkips`                                 | `false` | Log every skip decision                                                                     |
-| `pose.provideInspectionMode`                        | `true`  | Wrap previews in `CompositionLocalProvider(LocalInspectionMode provides true)`               |
-| `pose.previewWrapperFqName`                         | *unset* | Composable wrapping every preview, for supplying arbitrary `CompositionLocal`s              |
+Everything lives on the module's `@PoseSetup` object:
+
+| Setting | Default | Behavior |
+|---|---|---|
+| `Theme` override | passthrough | Wraps every generated preview - your theme goes here |
+| `Wrapper` override | passthrough | Supplies `CompositionLocal`s (fake image loaders, no-op analytics) |
+| `generateForAllPublicComposables` | `false` | Bulk opt-in. Implies non-strict diagnostics |
+| `previews` | *unset* | Multipreview annotations for the whole module |
+| `provideInspectionMode` | `true` | Wrap in `CompositionLocalProvider(LocalInspectionMode provides true)` |
+| `maxPreviewsPerComposable` | `8` | Cap on previews per composable |
+| `maxDepth` | `8` | Cap on structural-synthesis recursion |
+| `collectionSize` | `2` | Elements emitted for `List` / `Set` |
+
+### KSP options
+
+Only two, both build-behaviour knobs you might want to differ between a local build and CI. Everything that shapes previews lives on `@PoseSetup` above, where the compiler checks it.
+
+| Option | Default | Behavior |
+|---|---|---|
+| `pose.strict` | `true` | `false` demotes refusals to warnings instead of failing the build |
+| `pose.verboseSkips` | `false` | Log every skip decision |
+
+Anything else starting with `pose.` warns via `PG023` with a "did you mean" suggestion — including options removed in 0.6.0, so an old config tells you rather than silently doing nothing.
 
 ## Platforms 🌍
 
-- **Android** — first-class, tested end-to-end via the sample-app.
-- **Kotlin Multiplatform / Compose Multiplatform** — verified working on real CMP + KMP projects. `androidx.compose.ui.tooling.preview.Preview` unified across Android and CMP, so Pose's emission works on both. Wire the processor into the appropriate `ksp<Target>Main` configuration in your module's `build.gradle.kts`.
+- **Android** - first-class, tested end-to-end via the sample-app.
+- **Kotlin Multiplatform / Compose Multiplatform** - verified working on real CMP + KMP projects. `androidx.compose.ui.tooling.preview.Preview` unified across Android and CMP, so Pose's emission works on both. Wire the processor into the appropriate `ksp<Target>Main` configuration in your module's `build.gradle.kts`.
 
 ## Limitations 🚧
 
-- **Body-level analysis** — Pose only sees signatures. A composable that internally calls `hiltViewModel()` or reads a `LocalContext` may crash at preview render. Hand-write a `@Preview` for those (Pose skips), or refactor to stateless.
-- **Other non-goals** — ViewModel/Hilt params (refused by design — split into `Screen(vm) / ScreenContent(state, onEvent)` per [PG003](docs/refusals.md#pg003)), runtime fake-data libs, context params, default-expression forwarding ([KSP #268](https://github.com/google/ksp/issues/268)).
+- **Body-level analysis** - Pose only sees signatures. A composable that internally calls `hiltViewModel()` or reads a `LocalContext` may crash at preview render. Hand-write a `@Preview` for those (Pose skips), or refactor to stateless.
+- **Other non-goals** - ViewModel/Hilt params (refused by design - split into `Screen(vm) / ScreenContent(state, onEvent)` per [PG003](docs/refusals.md#pg003)), runtime fake-data libs, context params, default-expression forwarding ([KSP #268](https://github.com/google/ksp/issues/268)).
 
 ## Contributing 🤝
 

@@ -54,13 +54,6 @@ public data class ProviderSlot(
     public enum class Source { COMPANION_SAMPLES, STRUCTURAL, SEALED_FAN_OUT }
 }
 
-/** One entry from `@Pose(providers = [PoseProvider(...), ...])`. */
-public data class PoseProviderEntry(
-    val providerFqn: String,
-    /** Empty string means "match by generic type"; non-empty means "match this parameter name". */
-    val forParam: String,
-)
-
 /** Parsed subset of the `@Pose` annotation values. */
 public data class PreviewAnnotationArgs(
     val name: String,
@@ -74,11 +67,12 @@ public data class PreviewAnnotationArgs(
      */
     val previewAnnotationFqns: List<String>,
     /**
-     * Provider bindings from `@Pose(providers = [PoseProvider(...)])`. Each entry
-     * either names the parameter directly (`forParam = "..."`) or is matched by
-     * the provider's `PreviewParameterProvider<T>` generic type.
+     * FQNs from `@Pose(providers = [...])`. Each is matched to a parameter by the
+     * provider's `PreviewParameterProvider<T>` generic type. For per-parameter
+     * binding — two parameters of the same type — use `@PoseSample` on the
+     * parameter instead; it survives renames.
      */
-    val providers: List<PoseProviderEntry>,
+    val providers: List<String>,
 ) {
     public companion object {
         public fun parse(ann: KSAnnotation): PreviewAnnotationArgs = PreviewAnnotationArgs(
@@ -89,22 +83,13 @@ public data class PreviewAnnotationArgs(
                 .mapNotNull(::toFqn),
             providers = (ann.arguments.firstOrNull { it.name?.asString() == "providers" }?.value as? List<*>)
                 .orEmpty()
-                .mapNotNull(::toProviderEntry),
+                .mapNotNull(::toFqn),
         )
 
         private fun toFqn(value: Any?): String? = when (value) {
             is KSType -> value.declaration.qualifiedName?.asString()
             is KSClassDeclaration -> value.qualifiedName?.asString()
             else -> null
-        }
-
-        private fun toProviderEntry(value: Any?): PoseProviderEntry? {
-            val nested = value as? KSAnnotation ?: return null
-            val providerFqn = nested.arguments
-                .firstOrNull { it.name?.asString() == "provider" }
-                ?.value?.let(::toFqn) ?: return null
-            val forParam = (nested.arguments.firstOrNull { it.name?.asString() == "forParam" }?.value as? String).orEmpty()
-            return PoseProviderEntry(providerFqn = providerFqn, forParam = forParam)
         }
     }
 }

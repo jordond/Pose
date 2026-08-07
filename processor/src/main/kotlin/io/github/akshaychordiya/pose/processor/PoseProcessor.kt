@@ -18,43 +18,53 @@ import com.google.devtools.ksp.symbol.Visibility
  *
  * 1. **Explicit** — every function carrying `@Pose(...)`. Its arguments (name,
  *    wrapInTheme, previews, providers) feed the planner.
- * 2. **Bulk (opt-in)** — every public top-level `@Composable fun … : Unit` when
- *    `pose.generatePreviewsForAllPublicComposables = true`, excluding ones that
- *    (a) already carry `@Pose`, (b) carry `@PoseIgnore`, or (c) already have a
- *    hand-written `@Preview` on the function itself. Uses default annotation
- *    arguments (light+dark, wrap-in-theme, no providers).
+ * 2. **Bulk (opt-in)** — every public top-level `@Composable fun … : Unit` when the
+ *    module's `@PoseSetup(generateForAllPublicComposables = true)`, excluding ones
+ *    that already carry `@Pose`, carry `@PoseIgnore`, have a handwritten
+ *    `@Preview`, are wrapper-shaped, or belong to the config object itself.
  */
 public class PoseProcessor(
     private val codeGenerator: CodeGenerator,
     private val options: Options,
     logger: KSPLogger,
+    /** Raw KSP args, kept so unknown `pose.*` keys can be flagged (PG023). */
+    private val rawOptions: Map<String, String> = emptyMap(),
 ) : SymbolProcessor {
 
     private val diagnostics = Diagnostics(logger, options.strict, options.verboseSkips)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        // Validate `pose.themeFqName` once per round. A theme is a top-level
-        // @Composable function; may also be an invokable class in rare cases.
-        options.themeFqName?.let { themeFqn ->
-            if (!resolver.resolvesToComposableOrClass(themeFqn)) {
-                diagnostics.hardError(
-                    DiagnosticCode.PG011, node = null,
-                    "themeFqName `$themeFqn` does not resolve to a top-level composable or class on the compile classpath.",
+        // Flag misspelled Gradle keys - `Options.from()` does exact-key lookups, so a
+        // typo would otherwise silently take the default and leave no trace.
+        rawOptions.keys.filter { it.startsWith("pose.") && it !in Options.KnownKeys }
+            .forEach { unknown ->
+                diagnostics.warn(
+                    DiagnosticCode.PG023, node = null,
+                    "`$unknown` is not a Pose option${suggestionFor(unknown)}. " +
+                        "Known options: ${Options.KnownKeys.sorted().joinToString()}.",
                 )
-                return emptyList()
             }
-        }
 
-        options.previewWrapperFqName?.let { wrapperFqn ->
-            if (!resolver.resolvesToComposableOrClass(wrapperFqn)) {
-                diagnostics.hardError(
-                    DiagnosticCode.PG018, node = null,
-                    "previewWrapperFqName `$wrapperFqn` does not resolve to a top-level composable on the compile classpath. " +
-                        "Expected signature: `fun ${wrapperFqn.substringAfterLast('.')}(content: @Composable () -> Unit)`.",
+        // A @PoseSetup object, when present, layers over the KSP options.
+        val setup = PoseSetupResolver.resolve(resolver, diagnostics)
+        val options = setup?.let {
+            this.options.mergedWith(
+                Options.PoseSetupOverrides(
+                    objectFqn = it.objectFqn,
+                    overridesTheme = it.overridesTheme,
+                    overridesWrapper = it.overridesWrapper,
+                    generateForAllPublicComposables = it.args.generateForAllPublicComposables,
+                    provideInspectionMode = it.args.provideInspectionMode,
+                    maxPreviewsPerComposable = it.args.maxPreviewsPerComposable,
+                    maxDepth = it.args.maxDepth,
+                    collectionSize = it.args.collectionSize,
                 )
-                return emptyList()
-            }
-        }
+            )
+        } ?: this.options
+        val setupPreviewFqns = setup?.args?.previewAnnotationFqns.orEmpty()
+        // Bulk mode may have arrived via the setup object, after `diagnostics` was
+        // built, re-sync so its strict→warning coercion actually applies.
+        diagnostics.strict = options.strict
 
         // `LocalInspectionMode` lives in compose-ui, not compose-runtime. A module
         // could plausibly have the latter without the former, so gate the emission
@@ -76,6 +86,10 @@ public class PoseProcessor(
             .toList()
         val explicitFqns = explicitSymbols.mapNotNull { it.qualifiedName?.asString() }.toSet()
 
+        // The setup object's own Theme/Wrapper are @Composable and would otherwise be
+        // picked up by bulk mode previewing a theme renders its empty content lambda.
+        val setupObjectFqn = options.setupObjectFqn
+
         val bulkSymbols = if (options.generatePreviewsForAllPublicComposables) {
             resolver.getSymbolsWithAnnotation(COMPOSABLE_FQN)
                 .filterIsInstance<KSFunctionDeclaration>()
@@ -84,9 +98,12 @@ public class PoseProcessor(
                 .filterNot { fn -> fn.qualifiedName?.asString() in explicitFqns }
                 .filterNot { fn -> fn.hasAnnotationByFqn(POSE_IGNORE_FQN) }
                 .filterNot { fn -> fn.hasAnnotationByShortName("Preview") }
-                // The theme composable IS the wrapper - previewing it would just
-                // render an empty scope. Auto-skip it in bulk mode.
-                .filterNot { fn -> fn.qualifiedName?.asString() == options.themeFqName }
+                // The setup object's own Theme/Wrapper members are @Composable and
+                // would otherwise be picked up.
+                .filterNot { fn ->
+                    setupObjectFqn != null &&
+                        (fn.parentDeclaration as? KSClassDeclaration)?.qualifiedName?.asString() == setupObjectFqn
+                }
                 .toList()
         } else {
             emptyList()
@@ -104,8 +121,16 @@ public class PoseProcessor(
             val ann = fn.annotations.firstOrNull { it.annotationTypeFqn() == POSE_FQN } ?: continue
             plans += process(fn, PreviewAnnotationArgs.parse(ann), planner)
         }
+        val bulkAnnotationArgs = PreviewAnnotationArgs(
+            name = "",
+            wrapInTheme = true,
+            // A module-wide `@PoseSetup(previews = [...])` applies to bulk-mode
+            // composables, which have no annotation of their own to carry it.
+            previewAnnotationFqns = setupPreviewFqns,
+            providers = emptyList(),
+        )
         for (fn in bulkSymbols) {
-            plans += process(fn, defaultAnnotationArgs, planner)
+            plans += process(fn, bulkAnnotationArgs, planner)
         }
         emitter.emitAll(plans)
         return emptyList()
@@ -117,8 +142,8 @@ public class PoseProcessor(
         planner: PreviewPlanner,
     ): List<PreviewPlan> = when (val check = SignatureChecker.check(fn)) {
         is SignatureChecker.Result.Refused -> {
-            // `refusal` respects `pose.strict` — hard-errors under strict, warns
-            // otherwise. Bulk mode auto-coerces strict to false via Options.from.
+            // `refusal` respects `pose.strict` - hard-errors under strict, warns
+            // otherwise. Bulk mode coerces strict to false in `Options.mergedWith`.
             diagnostics.refusal(check.code, fn, check.detail)
             emptyList()
         }
@@ -135,6 +160,17 @@ public class PoseProcessor(
         val returnFqn = fn.returnType?.resolve()?.declaration?.qualifiedName?.asString()
         if (returnFqn != "kotlin.Unit") return false
         if (fn.typeParameters.isNotEmpty()) return false
+
+        // Wrapper-shaped composables - every required parameter is a @Composable
+        // content lambda — render nothing but synthesized empty content, so they're
+        // not useful previews. Themes, surfaces and providers all look like this.
+        //
+        // This used to be covered by matching against `pose.themeFqName`, but a
+        // @PoseSetup object invokes the theme inside an override body that KSP
+        // can't see, so Pose no longer knows the theme by name. The shape is the
+        // only signal left, and it generalises better anyway.
+        val required = fn.parameters.filterNot { it.hasDefault }
+        if (required.isNotEmpty() && required.all { it.type.resolve().isMarkedComposable() }) return false
         if (fn.functionKind == FunctionKind.TOP_LEVEL) return true
         val parent = fn.parentDeclaration as? KSClassDeclaration ?: return false
         return parent.classKind == ClassKind.OBJECT
@@ -146,24 +182,27 @@ public class PoseProcessor(
         private const val COMPOSABLE_FQN = "androidx.compose.runtime.Composable"
         private const val LOCAL_INSPECTION_MODE_FQN = "androidx.compose.ui.platform.LocalInspectionMode"
 
-        private val defaultAnnotationArgs = PreviewAnnotationArgs(
-            name = "",
-            wrapInTheme = true,
-            previewAnnotationFqns = emptyList(),
-            providers = emptyList(),
-        )
     }
 }
 
-/**
- * True when [fqn] names a top-level function (the usual case for a theme or
- * preview wrapper) or a class (rare — an invokable object).
- */
-private fun Resolver.resolvesToComposableOrClass(fqn: String): Boolean {
-    val name = getKSNameFromString(fqn)
-    val fnFound = getFunctionDeclarationsByName(name, includeTopLevel = true).any()
-    val classFound = getClassDeclarationByName(name) != null
-    return fnFound || classFound
+/** `" — did you mean `pose.strict`?"`, or empty when nothing is close enough. */
+private fun suggestionFor(unknown: String): String {
+    val best = Options.KnownKeys.minByOrNull { levenshtein(unknown, it) } ?: return ""
+    return if (levenshtein(unknown, best) <= 3) " — did you mean `$best`?" else ""
+}
+
+private fun levenshtein(a: String, b: String): Int {
+    var prev = IntArray(b.length + 1) { it }
+    for (i in 1..a.length) {
+        val curr = IntArray(b.length + 1)
+        curr[0] = i
+        for (j in 1..b.length) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            curr[j] = minOf(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+        }
+        prev = curr
+    }
+    return prev[b.length]
 }
 
 private fun KSAnnotation.annotationTypeFqn(): String? =

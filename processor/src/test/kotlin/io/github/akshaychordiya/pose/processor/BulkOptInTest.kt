@@ -8,7 +8,19 @@ import org.junit.Test
 
 class BulkOptInTest {
 
-    private val bulkOn = mapOf("pose.generatePreviewsForAllPublicComposables" to "true")
+    /** Bulk mode is now enabled by the module's config object, not a Gradle arg. */
+    private val bulkSetup = SourceFile.kotlin(
+        "BulkPose.kt",
+        """
+        package sample
+
+        import io.github.akshaychordiya.pose.PoseConfig
+        import io.github.akshaychordiya.pose.PoseSetup
+
+        @PoseSetup(generateForAllPublicComposables = true)
+        internal object BulkPose : PoseConfig
+        """.trimIndent()
+    )
 
     @Test
     fun `bulk mode generates a preview for a public unannotated composable`() {
@@ -23,7 +35,7 @@ class BulkOptInTest {
             fun Screen(title: String) { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         val generated = result.generatedFile("Screen__Preview.kt").readText()
@@ -63,7 +75,7 @@ class BulkOptInTest {
             private fun Priv() { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.generatedFiles.any { it.name == "Priv__Preview.kt" }).isFalse()
@@ -84,7 +96,7 @@ class BulkOptInTest {
             internal fun InternalScreen() { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.generatedFiles.any { it.name == "Internal__Preview.kt" }).isFalse()
@@ -103,7 +115,7 @@ class BulkOptInTest {
             fun ReturnsString(): String = "x"
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.generatedFiles.any { it.name == "Str__Preview.kt" }).isFalse()
@@ -124,7 +136,7 @@ class BulkOptInTest {
             fun DebugOverlay(state: String) { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.generatedFiles.any { it.name == "Ignored__Preview.kt" }).isFalse()
@@ -145,7 +157,7 @@ class BulkOptInTest {
             fun HandRolled() { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.generatedFiles.any { it.name == "HandRolled__Preview.kt" }).isFalse()
@@ -166,7 +178,7 @@ class BulkOptInTest {
             fun Explicit(title: String) { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         val generated = result.generatedFile("Explicit__Preview.kt").readText()
@@ -201,10 +213,7 @@ class BulkOptInTest {
             open class ViewModel
             """.trimIndent()
         )
-        val result = CompileHarness.compile(
-            sources = listOf(source, viewModelStub),
-            options = bulkOn,
-        )
+        val result = CompileHarness.compile(sources = listOf(source, viewModelStub, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         assertThat(result.messages).contains("PG003")
@@ -213,11 +222,14 @@ class BulkOptInTest {
     }
 
     @Test
-    fun `bulk mode auto-skips the theme composable identified by pose_themeFqName`() {
-        // In bulk mode, a project's theme composable (say `AppTheme(content: … -> Unit)`)
-        // would otherwise get picked up because it's public + top-level + Unit.
-        // Previewing it renders an empty scope. Auto-skip when its FQN matches
-        // `pose.themeFqName`.
+    fun `bulk mode auto-skips wrapper-shaped composables`() {
+        // A theme, surface or provider — anything whose only required parameter is a
+        // @Composable content lambda — renders nothing but synthesized empty content.
+        //
+        // This used to be done by matching `pose.themeFqName`, but the theme is now
+        // invoked inside a PoseConfig override body that KSP can't read, so Pose has
+        // no way to learn its name. Shape is the only signal left, and it generalises
+        // to surfaces and providers too.
         val theme = SourceFile.kotlin(
             "AppTheme.kt",
             """
@@ -240,17 +252,36 @@ class BulkOptInTest {
             fun Screen(title: String) { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(
-            sources = listOf(screen, theme),
-            options = bulkOn + mapOf("pose.themeFqName" to "sample.AppTheme"),
-        )
+        val result = CompileHarness.compile(sources = listOf(screen, theme, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         // The screen still gets a preview.
-        val screenGen = result.generatedFile("Screen__Preview.kt").readText()
-        assertThat(screenGen).contains("internal fun Screen__Preview()")
-        // The theme does NOT — it was auto-skipped by FQN match.
+        assertThat(result.generatedFile("Screen__Preview.kt").readText())
+            .contains("internal fun Screen__Preview()")
+        // The wrapper-shaped composable does not.
         assertThat(result.generatedFiles.any { it.name == "AppTheme__Preview.kt" }).isFalse()
+    }
+
+    @Test
+    fun `a defaulted trailing content lambda does not make a composable wrapper-shaped`() {
+        // Guards the heuristic's boundary: `content` here is defaulted, so the only
+        // *required* parameter is a String — a genuine preview target.
+        val source = SourceFile.kotlin(
+            "Card.kt",
+            """
+            package sample
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun LabeledCard(label: String, content: @Composable () -> Unit = {}) { }
+            """.trimIndent()
+        )
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        assertThat(result.generatedFile("Card__Preview.kt").readText())
+            .contains("internal fun LabeledCard__Preview()")
     }
 
     @Test
@@ -269,7 +300,7 @@ class BulkOptInTest {
             fun B(count: Int) { }
             """.trimIndent()
         )
-        val result = CompileHarness.compile(sources = listOf(source), options = bulkOn)
+        val result = CompileHarness.compile(sources = listOf(source, bulkSetup))
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         val generated = result.generatedFile("Multi__Preview.kt").readText()

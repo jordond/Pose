@@ -76,7 +76,7 @@ class DiagnosticMessageTest {
         assertThat(msg).contains("`Card`")
         assertThat(msg).contains("Opaque")
         assertThat(msg).contains("previewSamples")
-        assertThat(msg).contains("PoseProvider")
+        assertThat(msg).contains("providers = [OpaqueSamples::class]")
         assertThat(msg).contains("#pg001")
     }
 

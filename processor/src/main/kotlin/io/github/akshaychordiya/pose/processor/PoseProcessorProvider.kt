@@ -11,5 +11,6 @@ public class PoseProcessorProvider : SymbolProcessorProvider {
             codeGenerator = environment.codeGenerator,
             logger = environment.logger,
             options = Options.from(environment.options),
+            rawOptions = environment.options,
         )
 }

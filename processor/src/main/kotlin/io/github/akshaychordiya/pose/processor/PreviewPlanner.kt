@@ -5,6 +5,7 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.ClassName
@@ -115,7 +116,7 @@ public class PreviewPlanner(
                 notes += PreviewPlan.ResolutionNote(name, "T2", sealedInline.tierNote)
                 continue
             }
-            // @Pose(providers = [PoseProvider(...)]) — named binding wins,
+            // @PoseSample on the parameter wins,
             // then fall through to generic-type binding.
             val poseProviderMatch = resolveProviderForParam(param, ann.providers)
             if (poseProviderMatch != null) {
@@ -170,7 +171,7 @@ public class PreviewPlanner(
                 DiagnosticCode.PG010, fn,
                 "sealed type has ${sortedSubtypes.size} subtypes, exceeds cap $cap. " +
                     "Add `companion object { val previewSamples: Sequence<${sealedDecl.simpleName.asString()}> = … }` " +
-                    "to narrow, or raise pose.maxPreviewsPerComposable.",
+                    "to narrow, or raise `@PoseSetup(maxPreviewsPerComposable = …)`.",
             )
             if (options.strict) return emptyList()
         }
@@ -245,7 +246,7 @@ public class PreviewPlanner(
      */
     private fun findProviderSlotParam(
         fn: KSFunctionDeclaration,
-        poseProviders: List<PoseProviderEntry>,
+        poseProviders: List<String>,
     ): KSValueParameter? {
         for (param in fn.parameters) {
             if (param.hasDefault) continue
@@ -293,25 +294,31 @@ public class PreviewPlanner(
     private data class ProviderMatch(val providerFqn: String, val kind: String)
 
     /**
-     * Resolves a `@Pose(providers = [...])` entry for [param]. Order:
-     *  1. Named entry (`forParam = "<paramName>"`) wins outright.
-     *  2. Unnamed entry whose `PreviewParameterProvider<T>` generic `T` matches
-     *     [param]'s type FQN (nullability ignored).
+     * Finds the provider to use for [param]. Order:
+     *  1. `@PoseSample(Foo::class)` on the parameter - explicit, and rename-proof
+     *     because the binding travels with the declaration.
+     *  2. An entry in `@Pose(providers = [...])` whose `PreviewParameterProvider<T>`
+     *     generic `T` matches [param]'s type FQN (nullability ignored).
      */
     private fun resolveProviderForParam(
         param: KSValueParameter,
-        providers: List<PoseProviderEntry>,
+        providers: List<String>,
     ): ProviderMatch? {
-        if (providers.isEmpty()) return null
-        val paramName = param.name?.asString().orEmpty()
-        providers.firstOrNull { it.forParam.isNotEmpty() && it.forParam == paramName }
-            ?.let { return ProviderMatch(it.providerFqn, "providers.forParam") }
+        val sampleAnn = param.annotations.firstOrNull {
+            it.annotationType.resolve().declaration.qualifiedName?.asString() == POSE_SAMPLE_FQN
+        }
+        if (sampleAnn != null) {
+            val providerType = sampleAnn.arguments
+                .firstOrNull { it.name?.asString() == "provider" }?.value as? KSType
+            val fqn = providerType?.declaration?.qualifiedName?.asString()
+            if (fqn != null) return ProviderMatch(fqn, "@PoseSample")
+        }
 
+        if (providers.isEmpty()) return null
         val paramTypeFqn = param.type.resolve().declaration.qualifiedName?.asString() ?: return null
-        for (entry in providers) {
-            if (entry.forParam.isNotEmpty()) continue
+        for (providerFqn in providers) {
             val providerDecl = resolver.getClassDeclarationByName(
-                resolver.getKSNameFromString(entry.providerFqn),
+                resolver.getKSNameFromString(providerFqn),
             ) ?: continue
             val ppp = providerDecl.superTypes
                 .map { it.resolve() }
@@ -321,7 +328,7 @@ public class PreviewPlanner(
             val targetFqn = ppp.arguments.firstOrNull()
                 ?.type?.resolve()
                 ?.declaration?.qualifiedName?.asString() ?: continue
-            if (targetFqn == paramTypeFqn) return ProviderMatch(entry.providerFqn, "providers")
+            if (targetFqn == paramTypeFqn) return ProviderMatch(providerFqn, "providers")
         }
         return null
     }
@@ -350,7 +357,7 @@ public class PreviewPlanner(
                         "(tried ${reason.triedTiers.joinToString()}). " +
                         "Fix — either " +
                         "(1) add `companion object { val previewSamples: Sequence<$typeSimple> = … }` to $typeSimple, " +
-                        "(2) bind a provider with `@Pose(providers = [PoseProvider(${typeSimple}Samples::class)])`, or " +
+                        "(2) bind a provider with `@Pose(providers = [${typeSimple}Samples::class])`, or " +
                         "(3) hand-write a @Preview for `$simple`. " +
                         "Docs: ${DiagnosticCode.PG001.docsUrl}"
                 )
@@ -372,6 +379,7 @@ public class PreviewPlanner(
 
     private companion object {
         private const val PREVIEW_PARAMETER_PROVIDER_FQN = "androidx.compose.ui.tooling.preview.PreviewParameterProvider"
+        private const val POSE_SAMPLE_FQN = "io.github.akshaychordiya.pose.PoseSample"
 
         private val COLLECTION_FQNS = setOf(
             "kotlin.collections.List",

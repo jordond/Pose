@@ -2,22 +2,108 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.6.0] - Type-safe configuration
+
+Configuration moves out of Gradle strings and into Kotlin for type-safety. **Breaking** - the `pose.*` options it replaces are removed rather than deprecated; see Removed below for the one-block migration.
+
+### Added
+
+- **`@PoseSetup` + `PoseConfig`** - one config object per module:
+
+  ```kotlin
+  @PoseSetup(generateForAllPublicComposables = true)
+  internal object FeaturePose : PoseConfig {
+      @Composable
+      override fun Theme(content: @Composable () -> Unit) {
+          AppTheme { content() }
+      }
+  }
+  ```
+
+  Pose never learns your theme's name - it emits `FeaturePose.Theme { … }`. The reference to `AppTheme` is ordinary Kotlin, so the compiler checks it and the IDE refactors it. Renaming a theme can no longer break previews.
+- Scalars (`generateForAllPublicComposables`, `previews`, `provideInspectionMode`, `maxPreviewsPerComposable`, `maxDepth`, `collectionSize`) live on the `@PoseSetup` annotation rather than as interface properties, because KSP can read annotation arguments but not property initializers.
+- Shared config across modules via ordinary inheritance - put overrides on an `abstract class` in your design-system module, extend it per module.
+- `PG023` flags misspelled `pose.*` keys with a "did you mean" suggestion. Previously a typo silently took the default.
+- `PG019`–`PG022` cover config-object misuse: duplicate setup objects, `@PoseSetup` on a non-object, an unreachable (`private`) object, and one that doesn't implement `PoseConfig`.
+
+### Changed
+
+- **Bulk mode now skips wrapper-shaped composables** - any composable whose required parameters are all `@Composable` content lambdas. Themes, surfaces and providers render nothing but synthesized empty content, so they were never useful previews. This replaces the 0.4.2 "skip the composable matching `pose.themeFqName`" rule, which can't work once the theme is invoked inside an override body KSP can't see.
+
+- **`@PoseSample` replaces `PoseProvider(…, forParam = "…")`.** Binding a provider to one specific parameter now happens *on* that parameter:
+
+  ```kotlin
+  @Pose
+  @Composable
+  fun ArticleComparison(
+      @PoseSample(ArticleSamples::class)         left: Article,
+      @PoseSample(FeaturedArticleSamples::class) right: Article,
+  ) { … }
+  ```
+
+  `forParam` named a parameter by string from a distance — exactly the failure mode this release removes everywhere else. Renaming the parameter silently rebound it to the wrong provider (via generic-type fallback) or dropped it to structural synthesis. The annotation travels with the declaration, so there's nothing to desync.
+
+### Removed
+
+- **`PoseProvider` is gone.** Without `forParam` it was a single-field wrapper around a `KClass`, so `providers` takes classes directly: `@Pose(providers = [ArticleSamples::class])` instead of `@Pose(providers = [PoseProvider(ArticleSamples::class)])`.
+
+**Breaking.** Every `pose.*` KSP option that shapes previews is gone - `@PoseSetup` replaces all of them, and keeping two ways to configure the same thing wasn't worth it at 0.x. Passing a removed key now warns via `PG023` rather than being silently ignored.
+
+| Removed                                        | Replacement                                          |
+|------------------------------------------------|------------------------------------------------------|
+| `pose.themeFqName`                             | `override fun Theme(content)` on your `PoseConfig`   |
+| `pose.previewWrapperFqName`                    | `override fun Wrapper(content)`                      |
+| `pose.generatePreviewsForAllPublicComposables` | `@PoseSetup(generateForAllPublicComposables = true)` |
+| `pose.provideInspectionMode`                   | `@PoseSetup(provideInspectionMode = …)`              |
+| `pose.maxPreviewsPerComposable`                | `@PoseSetup(maxPreviewsPerComposable = …)`           |
+| `pose.maxDepth`                                | `@PoseSetup(maxDepth = …)`                           |
+| `pose.collectionSize`                          | `@PoseSetup(collectionSize = …)`                     |
+
+`pose.strict`, `pose.verboseSkips` survive - they're build-behavior knobs with no annotation equivalent, and you may want them to differ between a local build and CI.
+
+`PG011` and `PG018` retire with the string options they validated; `PoseConfig.Theme` / `.Wrapper` are compiler-checked, so there's nothing left to validate at build time.
+
+**Migration** replace the `ksp { arg(...) }` block with a config object:
+
+```kotlin
+// Before
+ksp {
+    arg("pose.themeFqName", "com.example.ui.AppTheme")
+    arg("pose.generatePreviewsForAllPublicComposables", "true")
+}
+
+// After
+@PoseSetup(generateForAllPublicComposables = true)
+internal object AppPose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) = AppTheme(content)
+}
+```
+- The `annotations` artifact now applies the Compose compiler plugin and takes `compose-runtime` as `compileOnly`, so `PoseConfig` can declare `@Composable` members. **The published POM is unchanged** — `compileOnly` doesn't publish, so the artifact still has no Compose dependency and the marker annotations stay usable without Compose on the classpath.
+
+### Fixed
+
+- Bulk mode enabled via `@PoseSetup` now correctly coerces `strict` to `false`. `Diagnostics` was built from pre-merge options, so the coercion was skipped when bulk arrived from the config object rather than a Gradle arg.
+
+### Unchanged
+
+- **The IntelliJ plugin.** It locates generated files by path and function name, neither of which changed. No plugin release needed.
+
 ## [0.5.0] - LocalInspectionMode + custom CompositionLocals
 
 ### Added
 
 - **Generated previews now provide `LocalInspectionMode = true`.** Every generated preview is wrapped in `CompositionLocalProvider(LocalInspectionMode provides true)`. Studio's preview renderer already sets this, but snapshot runners (Paparazzi, Roborazzi, `com.android.compose.screenshot`) leave it `false` — so a composable branching on `LocalInspectionMode.current` took its production path there, attempting real network calls with dummy URLs and producing blank snapshots. Opt out with `pose.provideInspectionMode = false`.
 - **`pose.previewWrapperFqName`** - point at your own composable to supply arbitrary `CompositionLocal`s (fake image loaders, no-op analytics, locale providers). Same trailing-lambda contract as `pose.themeFqName`. Nesting, outermost first: inspection-mode provider → your wrapper → theme → target. The wrapper sits inside Pose's provider so it keeps the final say over any local Pose also sets.
-- `PG018` diagnostic + [refusal-catalog entry](docs/refusals.md#pg018) for an unresolvable `previewWrapperFqName`.
 
 ### Changed
 
 - **Generated output changes for every user** - the extra `CompositionLocalProvider` layer appears in all generated previews. Behaviourally a no-op in Studio (which already sets the local); the difference shows up in snapshot tests, which is the point. No action needed unless you were relying on snapshot tests exercising the non-inspection path — in that case set `pose.provideInspectionMode = false`.
-- Emission is skipped silently when `androidx.compose.ui.platform.LocalInspectionMode` isn't on the compile classpath (a module with `compose-runtime` but no `compose-ui`), so no build can break on the new reference.
+- Emission is skipped silently when `androidx.compose.ui.platform.LocalInspectionMode` isn't on the compiled classpath (a module with `compose-runtime` but no `compose-ui`), so no build can break on the new reference.
 
 ### Tests
 
-- New `InspectionModeTest` — 6 cases covering default-on, opt-out, nesting order vs the theme, wrapper emission, full four-layer nesting order, and the PG018 refusal.
+- New `InspectionModeTest` - 6 cases covering default-on, opt-out, nesting order vs the theme, wrapper emission, full four-layer nesting order, and the PG018 refusal.
 - 4 new `OptionsTest` cases for the two new options. 60 processor tests total.
 
 ## [0.4.3] - KMP gutter icons
@@ -107,6 +193,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.6.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.0
 [0.5.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.5.0
 [0.4.3]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.3
 [0.4.2]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.4.2

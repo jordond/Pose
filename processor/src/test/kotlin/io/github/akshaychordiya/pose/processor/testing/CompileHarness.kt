@@ -57,6 +57,8 @@ internal object CompileHarness {
 
             package androidx.compose.runtime
 
+            import io.github.akshaychordiya.pose.PoseIgnore
+
             @Target(
                 AnnotationTarget.FUNCTION,
                 AnnotationTarget.TYPE,
@@ -81,6 +83,10 @@ internal object CompileHarness {
             fun <T> staticCompositionLocalOf(defaultFactory: () -> T): StaticProvidableCompositionLocal<T> =
                 StaticProvidableCompositionLocal(defaultFactory())
 
+            // @PoseIgnore because this is harness infrastructure, not a preview
+            // target - without it, bulk-mode tests try to synthesize a vararg of
+            // ProvidedValue and emit noise.
+            @PoseIgnore
             @Composable
             fun CompositionLocalProvider(vararg values: ProvidedValue<*>, content: @Composable () -> Unit) {
                 content()

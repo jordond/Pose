@@ -28,6 +28,26 @@ class InspectionModeTest {
         """.trimIndent()
     )
 
+    /** A `@PoseSetup` object with the given body, alongside a theme + wrapper to call. */
+    private fun setup(body: String) = SourceFile.kotlin(
+        "SamplePose.kt",
+        """
+        package sample
+
+        import androidx.compose.runtime.Composable
+        import io.github.akshaychordiya.pose.PoseConfig
+        import io.github.akshaychordiya.pose.PoseSetup
+
+        @Composable
+        fun AppTheme(content: @Composable () -> Unit) { content() }
+
+        @Composable
+        fun FakeLocals(content: @Composable () -> Unit) { content() }
+
+        $body
+        """.trimIndent()
+    )
+
     @Test
     fun `inspection mode is provided by default`() {
         val result = CompileHarness.compile(listOf(target))
@@ -39,10 +59,17 @@ class InspectionModeTest {
     }
 
     @Test
-    fun `inspection mode can be disabled via pose_provideInspectionMode`() {
+    fun `inspection mode can be disabled on the setup object`() {
         val result = CompileHarness.compile(
-            sources = listOf(target),
-            options = mapOf("pose.provideInspectionMode" to "false"),
+            listOf(
+                target,
+                setup(
+                    """
+                    @PoseSetup(provideInspectionMode = false)
+                    internal object SamplePose : PoseConfig
+                    """.trimIndent()
+                ),
+            )
         )
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
@@ -53,85 +80,79 @@ class InspectionModeTest {
 
     @Test
     fun `inspection mode provider wraps outside the theme`() {
-        val theme = SourceFile.kotlin(
-            "AppTheme.kt",
-            """
-            package sample
-
-            import androidx.compose.runtime.Composable
-
-            @Composable
-            fun AppTheme(content: @Composable () -> Unit) { content() }
-            """.trimIndent()
-        )
         val result = CompileHarness.compile(
-            sources = listOf(target, theme),
-            options = mapOf("pose.themeFqName" to "sample.AppTheme"),
+            listOf(
+                target,
+                setup(
+                    """
+                    @PoseSetup
+                    internal object SamplePose : PoseConfig {
+                        @Composable
+                        override fun Theme(content: @Composable () -> Unit) {
+                            AppTheme { content() }
+                        }
+                    }
+                    """.trimIndent()
+                ),
+            )
         )
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
         val generated = result.generatedFile("Viewer__Preview.kt").readText()
 
-        // Provider must appear BEFORE the theme so the theme itself can read the local.
+        // Provider must come first so the theme itself can read the local.
         val providerIdx = generated.indexOf("CompositionLocalProvider")
-        val themeIdx = generated.indexOf("AppTheme {")
+        val themeIdx = generated.indexOf("SamplePose.Theme")
         assertThat(providerIdx).isGreaterThan(-1)
         assertThat(themeIdx).isGreaterThan(providerIdx)
     }
 
     @Test
-    fun `previewWrapperFqName wraps every generated preview`() {
-        val wrapper = SourceFile.kotlin(
-            "PreviewWrapper.kt",
-            """
-            package sample
-
-            import androidx.compose.runtime.Composable
-
-            @Composable
-            fun PreviewWrapper(content: @Composable () -> Unit) { content() }
-            """.trimIndent()
-        )
+    fun `Wrapper override wraps every generated preview`() {
         val result = CompileHarness.compile(
-            sources = listOf(target, wrapper),
-            options = mapOf("pose.previewWrapperFqName" to "sample.PreviewWrapper"),
+            listOf(
+                target,
+                setup(
+                    """
+                    @PoseSetup
+                    internal object SamplePose : PoseConfig {
+                        @Composable
+                        override fun Wrapper(content: @Composable () -> Unit) {
+                            FakeLocals { content() }
+                        }
+                    }
+                    """.trimIndent()
+                ),
+            )
         )
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
-        val generated = result.generatedFile("Viewer__Preview.kt").readText()
-        assertThat(generated).contains("PreviewWrapper {")
+        assertThat(result.generatedFile("Viewer__Preview.kt").readText())
+            .contains("SamplePose.Wrapper {")
     }
 
     @Test
     fun `wrapper nests inside the inspection-mode provider and outside the theme`() {
-        val wrapper = SourceFile.kotlin(
-            "PreviewWrapper.kt",
-            """
-            package sample
-
-            import androidx.compose.runtime.Composable
-
-            @Composable
-            fun PreviewWrapper(content: @Composable () -> Unit) { content() }
-            """.trimIndent()
-        )
-        val theme = SourceFile.kotlin(
-            "AppTheme.kt",
-            """
-            package sample
-
-            import androidx.compose.runtime.Composable
-
-            @Composable
-            fun AppTheme(content: @Composable () -> Unit) { content() }
-            """.trimIndent()
-        )
         val result = CompileHarness.compile(
-            sources = listOf(target, wrapper, theme),
-            options = mapOf(
-                "pose.themeFqName" to "sample.AppTheme",
-                "pose.previewWrapperFqName" to "sample.PreviewWrapper",
-            ),
+            listOf(
+                target,
+                setup(
+                    """
+                    @PoseSetup
+                    internal object SamplePose : PoseConfig {
+                        @Composable
+                        override fun Theme(content: @Composable () -> Unit) {
+                            AppTheme { content() }
+                        }
+
+                        @Composable
+                        override fun Wrapper(content: @Composable () -> Unit) {
+                            FakeLocals { content() }
+                        }
+                    }
+                    """.trimIndent()
+                ),
+            )
         )
 
         assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
@@ -139,25 +160,13 @@ class InspectionModeTest {
 
         // Expected order, outermost first: provider → wrapper → theme → target.
         val providerIdx = generated.indexOf("CompositionLocalProvider")
-        val wrapperIdx = generated.indexOf("PreviewWrapper {")
-        val themeIdx = generated.indexOf("AppTheme {")
+        val wrapperIdx = generated.indexOf("SamplePose.Wrapper")
+        val themeIdx = generated.indexOf("SamplePose.Theme")
         val targetIdx = generated.indexOf("PhotoViewer(")
 
         assertThat(providerIdx).isGreaterThan(-1)
         assertThat(wrapperIdx).isGreaterThan(providerIdx)
         assertThat(themeIdx).isGreaterThan(wrapperIdx)
         assertThat(targetIdx).isGreaterThan(themeIdx)
-    }
-
-    @Test
-    fun `PG018 refuses an unresolvable previewWrapperFqName`() {
-        val result = CompileHarness.compile(
-            sources = listOf(target),
-            options = mapOf("pose.previewWrapperFqName" to "sample.DoesNotExist"),
-        )
-
-        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.COMPILATION_ERROR)
-        assertThat(result.messages).contains("PG018")
-        assertThat(result.messages).contains("sample.DoesNotExist")
     }
 }

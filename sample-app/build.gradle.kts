@@ -28,7 +28,8 @@ android {
 }
 
 ksp {
-    arg("pose.themeFqName", "io.github.akshaychordiya.pose.sample.SampleTheme")
+    // Theme + flags now live in SamplePose.kt as type-safe Kotlin. Nothing needed here.
+    // The legacy `arg("pose.themeFqName", "…")` still works as a fallback.
 }
 
 dependencies {

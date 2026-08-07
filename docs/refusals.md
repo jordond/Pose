@@ -2,7 +2,9 @@
 
 Each `PG-xxx` diagnostic emitted by the processor links here for a longer explanation and remediation pattern. Sections are ordered by code.
 
-Under `pose.strict = true` (the default) every refusal is a compile error. Under `pose.strict = false` — including implicitly, when `pose.generatePreviewsForAllPublicComposables = true` — refusals are warnings and Pose skips the composable.
+Under `pose.strict = true` (the default) every refusal is a compile error. Under `pose.strict = false` - including implicitly, whenever `@PoseSetup(generateForAllPublicComposables = true)` is set — refusals are warnings and Pose skips the composable.
+
+Configuration codes (PG019–PG023) are always errors regardless of `strict`, except PG023 which is always a warning.
 
 ---
 
@@ -25,7 +27,7 @@ Structural synthesis exhausted every tier (T0 default → T1 well-known FQN → 
    class ArticleSamples : PreviewParameterProvider<Article> {
        override val values = sequenceOf(Article("Hello", "…"))
    }
-   @Pose(providers = [PoseProvider(ArticleSamples::class)])
+   @Pose(providers = [ArticleSamples::class])
    ```
 3. Hand-write a `@Preview` for the composable — Pose detects it and skips generation.
 
@@ -33,7 +35,7 @@ Structural synthesis exhausted every tier (T0 default → T1 well-known FQN → 
 
 ## PG002 — cycle or depth exceeded during structural synthesis
 
-Two types refer to each other (or a type refers to itself) and structural synth would recurse forever. Pose stops at `pose.maxDepth` (default 8).
+Two types refer to each other (or a type refers to itself) and structural synth would recurse forever. Pose stops at `@PoseSetup(maxDepth = …)` (default 8).
 
 **Fix:** break the cycle by providing one of the types via `@Pose(providers = [...])` or `companion.previewSamples`.
 
@@ -116,21 +118,13 @@ Private composables aren't referenceable from the generated file's package.
 
 ## PG010 — total preview count exceeds the configured cap
 
-A sealed fan-out (or nested combination) would emit more previews than `pose.maxPreviewsPerComposable` (default 8).
+A sealed fan-out (or nested combination) would emit more previews than `@PoseSetup(maxPreviewsPerComposable = …)` (default 8).
 
 **Fix — pick one:**
 
 1. Narrow with a `companion.previewSamples` sequence
-2. Raise the cap with `arg("pose.maxPreviewsPerComposable", "16")`
+2. Raise the cap: `@PoseSetup(maxPreviewsPerComposable = 16)`
 3. Split the sealed hierarchy across multiple composables
-
----
-
-## PG011 — `pose.themeFqName` is invalid
-
-The FQN passed in the KSP option doesn't resolve to a top-level composable or class on the compile classpath.
-
-**Fix:** confirm the FQN is correct and the theme module is on the current module's classpath.
 
 ---
 
@@ -156,18 +150,73 @@ Previews render `Unit`-returning composables.
 
 ---
 
-## PG018 — `pose.previewWrapperFqName` is invalid
+## PG023 — unknown `pose.*` option
 
-The FQN passed in the KSP option doesn't resolve to a top-level composable on the compile classpath.
+A KSP option starting with `pose.` that Pose doesn't recognise — almost always a typo. Pose reads options by exact key, so an unrecognised one would otherwise silently take its default and leave no trace.
 
-**Fix:** confirm the FQN is correct, the wrapper is a top-level `@Composable`, and its module is on the current module's classpath. Expected signature:
+```
+[PG023] `pose.stict` is not a Pose option — did you mean `pose.strict`?
+```
+
+Emitted as a warning, not an error, so a newer Pose version's options don't break an older processor.
+
+**Fix:** correct the spelling, or drop the option. Consider moving configuration into a [`@PoseSetup` object](#pg022) instead — misspelling a property there is a compile error rather than a silent no-op.
+
+---
+
+## PG022 — `@PoseSetup` object does not implement `PoseConfig`
+
+The annotated object needs to implement `PoseConfig` so Pose knows the `Theme` and `Wrapper` hooks exist.
 
 ```kotlin
-@Composable
-fun PreviewWrapper(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalMyThing provides fake()) { content() }
+@PoseSetup(generateForAllPublicComposables = true)
+internal object FeaturePose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) {
+        AppTheme { content() }
+    }
 }
 ```
+
+Both hooks default to passthrough, so overriding only what you need is fine — an object with no overrides is valid, it just adds no wrapping.
+
+---
+
+## PG021 — `@PoseSetup` object is not reachable
+
+The config object is `private`, so generated previews — which live in a different file — can't call it.
+
+**Fix:** make it `internal` (recommended) or `public`.
+
+---
+
+## PG020 — `@PoseSetup` applied to something that isn't an object
+
+Pose calls the config statically, so it must be an `object`, not a `class` or `interface`.
+
+**Fix:** `internal object FeaturePose : PoseConfig`. To share configuration across modules, put the overrides on an interface in your design-system module and have each module's object implement it:
+
+```kotlin
+// :design-system
+interface AppPoseDefaults : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) = AppTheme(content)
+}
+
+// :feature:checkout
+@PoseSetup(generateForAllPublicComposables = true)
+internal object CheckoutPose : AppPoseDefaults
+```
+
+An `abstract class` works too, if you'd rather — but config is stateless, so an interface avoids the constructor call and lets a module compose several defaults if it needs to.
+
+---
+
+## PG019 — more than one `@PoseSetup` in the module
+
+Pose configuration is per-module, so a module with two config objects is ambiguous.
+
+**Fix:** keep one and share the rest through inheritance (see [PG020](#pg020)). KSP can't enumerate annotated symbols across compiled dependencies, which is why every module needs its own object rather than inheriting one wholesale.
 
 ---
 

@@ -26,8 +26,8 @@ import kotlin.reflect.KClass
  * parameters, or private visibility are refused with a diagnostic.
  *
  * The cap on the number of previews emitted per composable (relevant for sealed
- * fan-out) is set project-wide via the `pose.maxPreviewsPerComposable`
- * KSP option (default 8).
+ * fan-out) is set per-module via `@PoseSetup(maxPreviewsPerComposable = …)`,
+ * default 8.
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
@@ -36,8 +36,9 @@ public annotation class Pose(
     val name: String = "",
 
     /**
-     * Wrap the target call in the composable resolved from the `pose.themeFqName`
-     * KSP option. Set to `false` when the target composable applies its own theme.
+     * Wrap the target call in the module's [PoseConfig.Theme]. Set to `false` when
+     * this composable applies its own theme - the opt-out is per-composable, so
+     * everything else in the module stays wrapped.
      */
     val wrapInTheme: Boolean = true,
 
@@ -53,9 +54,22 @@ public annotation class Pose(
     val previews: Array<KClass<out Annotation>> = [],
 
     /**
-     * `PreviewParameterProvider<T>` bindings for this composable's parameters.
-     * See [PoseProvider] for the two forms — implicit (generic-type match) and
-     * explicit (per-parameter name). Scoped to this composable only.
+     * `PreviewParameterProvider<T>` classes to draw sample data from. Each is
+     * matched to a parameter by its generic type `T`:
+     *
+     * ```
+     * class ArticleSamples : PreviewParameterProvider<Article> {
+     *     override val values = sequenceOf(Article("Hello", "…"))
+     * }
+     *
+     * @Pose(providers = [ArticleSamples::class])
+     * @Composable
+     * fun ArticleCard(article: Article, onOpen: () -> Unit) { … }
+     * ```
+     *
+     * Scoped to this composable - never leaks into others. When two parameters
+     * share a type and need different data, annotate them individually with
+     * [PoseSample].
      */
-    val providers: Array<PoseProvider> = [],
+    val providers: Array<KClass<*>> = [],
 )
