@@ -2,6 +2,37 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.6.1] - Tell people when the theme is missing
+
+Upgrading to 0.6.0 removed `pose.themeFqName`. If you didn't also add a `@PoseSetup` object, Pose carried on generating previews with **no theme** and said nothing - they render in Compose's baseline palette, which looks like a Pose bug rather than missing configuration. Snapshot suites see it as a wall of unexplained golden diffs.
+
+No behavior changes; this release is entirely about making that state visible.
+
+### Added
+
+- **`PG024`** - warns when a module generates previews but has no `@PoseSetup` object, naming the exact config to add:
+
+  ```
+  [PG024] generated 14 preview(s) in this module but found no @PoseSetup object,
+  so they render with Compose's default theme rather than yours. Add:
+      @PoseSetup
+      internal object AppPose : PoseConfig {
+          @Composable
+          override fun Theme(content: @Composable () -> Unit) = AppTheme(content)
+      }
+  ```
+
+  Always a warning, never an error - generation succeeded, it just may not look right. Unthemed previews are legitimate for a design-system module, so declaring `@PoseSetup internal object AppPose : PoseConfig` with no `Theme` override is the explicit opt-out and silences it. Not governed by `pose.strict`, because bulk mode forces `strict = false` and that's exactly where losing a whole module's theme hurts most.
+
+### Changed
+
+- **`PG023` now names the migration** for each option removed in 0.6.0 instead of just reporting it as unrecognised:
+
+  ```
+  [PG023] `pose.themeFqName` was removed in 0.6.0 and is being ignored —
+  previews will render UNTHEMED until you add a @PoseSetup object overriding `Theme`.
+  ```
+
 ## [0.6.0] - Type-safe configuration
 
 Configuration moves out of Gradle strings and into Kotlin for type-safety. **Breaking** - the `pose.*` options it replaces are removed rather than deprecated; see Removed below for the one-block migration.
@@ -193,6 +224,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.6.1]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.0
 [0.5.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.5.0
 [0.4.3]: https://github.com/AkshayChordiya/Pose/releases/tag/plugin-v0.4.3

@@ -290,6 +290,43 @@ class PoseSetupTest {
     }
 
     @Test
+    fun `PG024 warns when previews are generated with no setup object`() {
+        val result = CompileHarness.compile(listOf(target))
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        assertThat(result.messages).contains("PG024")
+        assertThat(result.messages).contains("no @PoseSetup object")
+    }
+
+    @Test
+    fun `PG024 is silent once a setup object exists, even with no Theme override`() {
+        // Declaring the object without overriding Theme is the explicit "I meant
+        // unthemed" opt-out.
+        val result = CompileHarness.compile(
+            listOf(target, setupObject("@PoseSetup\ninternal object SamplePose : PoseConfig"))
+        )
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        assertThat(result.messages).doesNotContain("PG024")
+    }
+
+    @Test
+    fun `PG024 is silent when the module generates no previews`() {
+        val nothing = SourceFile.kotlin(
+            "Empty.kt",
+            """
+            package sample
+
+            fun notAComposable() { }
+            """.trimIndent()
+        )
+        val result = CompileHarness.compile(listOf(nothing))
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        assertThat(result.messages).doesNotContain("PG024")
+    }
+
+    @Test
     fun `PG023 warns on a misspelled option key and suggests the right one`() {
         val result = CompileHarness.compile(
             sources = listOf(target),

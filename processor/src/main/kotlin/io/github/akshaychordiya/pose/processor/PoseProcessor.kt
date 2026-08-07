@@ -38,10 +38,15 @@ public class PoseProcessor(
         // typo would otherwise silently take the default and leave no trace.
         rawOptions.keys.filter { it.startsWith("pose.") && it !in Options.KnownKeys }
             .forEach { unknown ->
+                val migration = REMOVED_OPTIONS[unknown]
                 diagnostics.warn(
                     DiagnosticCode.PG023, node = null,
-                    "`$unknown` is not a Pose option${suggestionFor(unknown)}. " +
-                        "Known options: ${Options.KnownKeys.sorted().joinToString()}.",
+                    if (migration != null) {
+                        "`$unknown` was removed in 0.6.0 and is being ignored — $migration"
+                    } else {
+                        "`$unknown` is not a Pose option${suggestionFor(unknown)}. " +
+                            "Known options: ${Options.KnownKeys.sorted().joinToString()}."
+                    },
                 )
             }
 
@@ -132,6 +137,25 @@ public class PoseProcessor(
         for (fn in bulkSymbols) {
             plans += process(fn, bulkAnnotationArgs, planner)
         }
+        // Generating previews with no config object means no theme — they'll render
+        // in Compose's baseline palette, which looks like a Pose bug rather than
+        // missing setup. Silence here is what made the 0.6.0 upgrade confusing.
+        // Declaring the object without overriding `Theme` is the explicit opt-out.
+        if (plans.isNotEmpty() && setup == null) {
+            diagnostics.warn(
+                DiagnosticCode.PG024, node = null,
+                "generated ${plans.size} preview(s) in this module but found no @PoseSetup object, " +
+                    "so they render with Compose's default theme rather than yours. Add:\n" +
+                    "    @PoseSetup\n" +
+                    "    internal object AppPose : PoseConfig {\n" +
+                    "        @Composable\n" +
+                    "        override fun Theme(content: @Composable () -> Unit) = AppTheme(content)\n" +
+                    "    }\n" +
+                    "Declare it without overriding `Theme` if unthemed previews are intended. " +
+                    "Docs: ${DiagnosticCode.PG024.docsUrl}",
+            )
+        }
+
         emitter.emitAll(plans)
         return emptyList()
     }
@@ -181,6 +205,25 @@ public class PoseProcessor(
         private const val POSE_IGNORE_FQN = "io.github.akshaychordiya.pose.PoseIgnore"
         private const val COMPOSABLE_FQN = "androidx.compose.runtime.Composable"
         private const val LOCAL_INSPECTION_MODE_FQN = "androidx.compose.ui.platform.LocalInspectionMode"
+
+        /**
+         * Options deleted in 0.6.0, with the migration each one needs. Worth naming
+         * explicitly: silently ignoring `pose.themeFqName` means previews render
+         * unthemed, which looks like a Pose bug rather than a missing config object.
+         */
+        private val REMOVED_OPTIONS = mapOf(
+            "pose.themeFqName" to
+                "previews will render UNTHEMED until you add a @PoseSetup object overriding `Theme`. " +
+                    "See https://github.com/AkshayChordiya/Pose#install",
+            "pose.previewWrapperFqName" to
+                "override `Wrapper` on your @PoseSetup object instead.",
+            "pose.generatePreviewsForAllPublicComposables" to
+                "use @PoseSetup(generateForAllPublicComposables = true).",
+            "pose.provideInspectionMode" to "use @PoseSetup(provideInspectionMode = …).",
+            "pose.maxPreviewsPerComposable" to "use @PoseSetup(maxPreviewsPerComposable = …).",
+            "pose.maxDepth" to "use @PoseSetup(maxDepth = …).",
+            "pose.collectionSize" to "use @PoseSetup(collectionSize = …).",
+        )
 
     }
 }

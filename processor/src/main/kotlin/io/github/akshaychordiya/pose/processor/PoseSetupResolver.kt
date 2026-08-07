@@ -120,11 +120,17 @@ internal object PoseSetupResolver {
      * Lets the emitter skip wrapper layers that would be no-ops, keeping the
      * generated file readable.
      */
-    private fun KSClassDeclaration.overridesConfigFunction(name: String): Boolean {
-        val fn = getAllFunctions().firstOrNull { it.simpleName.asString() == name } ?: return false
-        val declaringFqn = (fn.parentDeclaration as? KSClassDeclaration)?.qualifiedName?.asString()
-        return declaringFqn != null && declaringFqn != POSE_CONFIG_FQN
-    }
+    private fun KSClassDeclaration.overridesConfigFunction(name: String): Boolean =
+        // `any` rather than "first match", because the question is whether the function
+        // is overridden *anywhere* in the hierarchy. KSP appears to return only the
+        // most-derived declaration, which would make either form work — but that isn't
+        // guaranteed anywhere, and this phrasing doesn't depend on it.
+        getAllFunctions()
+            .filter { it.simpleName.asString() == name }
+            .any { fn ->
+                val declaringFqn = (fn.parentDeclaration as? KSClassDeclaration)?.qualifiedName?.asString()
+                declaringFqn != null && declaringFqn != POSE_CONFIG_FQN
+            }
 
     private fun parseArgs(ann: KSAnnotation?): PoseSetup.Args {
         fun <T> arg(name: String): T? {

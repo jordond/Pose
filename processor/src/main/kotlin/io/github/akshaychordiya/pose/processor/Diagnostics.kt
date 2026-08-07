@@ -31,7 +31,8 @@ public enum class DiagnosticCode(public val message: String) {
     PG020("@PoseSetup applied to something that is not an object"),
     PG021("@PoseSetup object is not reachable from generated code"),
     PG022("@PoseSetup object does not implement PoseConfig"),
-    PG023("unknown pose.* option");
+    PG023("unknown pose.* option"),
+    PG024("previews generated without a @PoseSetup object — no theme applied");
 
     /**
      * Stable deep-link into the refusal-catalog docs. Anchors are lowercased

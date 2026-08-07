@@ -150,6 +150,33 @@ Previews render `Unit`-returning composables.
 
 ---
 
+## PG024 — previews generated without a `@PoseSetup` object
+
+Pose generated previews for this module but found no config object, so nothing supplies your theme - they render in Compose's baseline palette (the purple-ish M3 defaults) rather than your app's colours.
+
+Most often seen right after upgrading to 0.6.0, which removed `pose.themeFqName`. Add the object:
+
+```kotlin
+@PoseSetup
+internal object AppPose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) {
+        AppTheme { content() }
+    }
+}
+```
+
+**Intentionally unthemed?** Declare the object and skip the `Theme` override - `PoseConfig` defaults to a passthrough, and the explicit declaration silences the warning:
+
+```kotlin
+@PoseSetup
+internal object AppPose : PoseConfig
+```
+
+Always a warning, never an error - generation succeeded, it just may not look like you expect.
+
+---
+
 ## PG023 — unknown `pose.*` option
 
 A KSP option starting with `pose.` that Pose doesn't recognise — almost always a typo. Pose reads options by exact key, so an unrecognised one would otherwise silently take its default and leave no trace.
