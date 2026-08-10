@@ -18,10 +18,12 @@ Structural synthesis exhausted every tier (T0 default → T1 well-known FQN → 
    ```kotlin
    data class Article(val title: String, val body: String) {
        companion object {
-           val previewSamples: Sequence<Article> = sequenceOf(Article("Hello", "…"))
+           val previewSamples: Sequence<Article> get() = sequenceOf(Article("Hello", "…"))
        }
    }
    ```
+
+   Use `get()` — `sequenceOf(...)` evaluates its arguments eagerly, so a plain `val` constructs every sample when the companion initialises, in production, for data only previews read.
 2. Attach a `PreviewParameterProvider<T>` via `@Pose(providers = [...])`:
    ```kotlin
    class ArticleSamples : PreviewParameterProvider<Article> {

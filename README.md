@@ -10,6 +10,8 @@
 
 Your composable strikes a **Pose** for the preview panel. Annotate, build, done. ✨
 
+![Pose generating a Compose preview at build time](docs/images/pose-demo.gif)
+
 ```kotlin
 @Composable
 @Pose
@@ -50,8 +52,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.6.1")
-    kspDebug("io.github.akshaychordiya.pose:processor:0.6.1")
+    implementation("io.github.akshaychordiya.pose:annotations:0.6.2")
+    kspDebug("io.github.akshaychordiya.pose:processor:0.6.2")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -141,7 +143,7 @@ For empty / error / long-text / edge-case variants, expose a sequence on the typ
 ```kotlin
 data class LoginUiState(...) {
     companion object {
-        val previewSamples: Sequence<LoginUiState> = sequenceOf(
+        val previewSamples: Sequence<LoginUiState> get() = sequenceOf(
             LoginUiState(email = "", …),
             LoginUiState(isSubmitting = true, …),
             LoginUiState(error = "Invalid", …),
@@ -151,6 +153,9 @@ data class LoginUiState(...) {
 ```
 
 Pose wires it through `@PreviewParameter` automatically. **Write once, benefit everywhere** - every composable that takes `LoginUiState` now shows all variants.
+
+#### Prefer to keep sample data out of production source entirely?
+Put a `PreviewParameterProvider` in `src/debug/kotlin` and reference it with `@Pose(providers = [...])` instead 👇
 
 ### Bring your own `PreviewParameterProvider` 🧺
 

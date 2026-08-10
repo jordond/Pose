@@ -25,7 +25,7 @@ class CompanionSamplesTest {
                 val error: String?,
             ) {
                 companion object {
-                    val previewSamples: Sequence<LoginUiState> = sequenceOf(
+                    val previewSamples: Sequence<LoginUiState> get() = sequenceOf(
                         LoginUiState(email = "", password = "", isSubmitting = false, error = null),
                         LoginUiState(email = "a@b.com", password = "hunter", isSubmitting = true, error = null),
                         LoginUiState(email = "invalid", password = "", isSubmitting = false, error = "Invalid"),

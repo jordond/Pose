@@ -22,7 +22,7 @@ data class Product(
     val badge: String?,
 ) {
     companion object {
-        val previewSamples: Sequence<Product> = sequenceOf(
+        val previewSamples: Sequence<Product> get() = sequenceOf(
             Product(name = "Notebook",         priceLabel = "£9.99",   badge = null),
             Product(name = "Fountain pen",     priceLabel = "£24.00",  badge = "New"),
             Product(name = "Very long name that wraps onto two lines",

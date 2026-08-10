@@ -2,6 +2,21 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [0.6.2] - Don't build preview data in production
+
+### Changed
+
+- **`PG001` and `PG010` now suggest `get() = sequenceOf(...)`** rather than a plain `val`. `sequenceOf(a, b, c)` evaluates its arguments eagerly — a `Sequence` is lazy about *iteration*, not construction — so the previously-suggested form built every sample when the companion object initialised. That happens the first time anything touches the type, **in production**, for data only the preview panel reads. The getter defers it entirely, and release builds never call it since generated previews live in the debug variant.
+
+  Same correction applied to the README and [refusal catalog](docs/refusals.md#pg001), both of which now explain why rather than just showing the corrected code.
+
+  Thanks to feedback on the 0.6.x docs for catching this.
+
+### Docs
+
+- README leads with a demo GIF.
+- Documents putting a `PreviewParameterProvider` in `src/debug/kotlin` as the stronger option when you'd rather keep sample data out of production source altogether.
+
 ## [0.6.1] - Tell people when the theme is missing
 
 Upgrading to 0.6.0 removed `pose.themeFqName`. If you didn't also add a `@PoseSetup` object, Pose carried on generating previews with **no theme** and said nothing - they render in Compose's baseline palette, which looks like a Pose bug rather than missing configuration. Snapshot suites see it as a wall of unexplained golden diffs.
@@ -224,6 +239,7 @@ First release published to Maven Central under `io.github.akshaychordiya.pose`. 
 - Sealed fan-out (one preview per subtype), `companion.previewSamples` support, theme wrapping via `pose.themeFqName`.
 - Sample app with LoginContent + HomeContent.
 
+[0.6.2]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.2
 [0.6.1]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.6.0
 [0.5.0]: https://github.com/AkshayChordiya/Pose/releases/tag/v0.5.0

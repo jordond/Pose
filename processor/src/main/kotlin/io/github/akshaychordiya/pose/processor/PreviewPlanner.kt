@@ -170,7 +170,7 @@ public class PreviewPlanner(
             diagnostics.refusal(
                 DiagnosticCode.PG010, fn,
                 "sealed type has ${sortedSubtypes.size} subtypes, exceeds cap $cap. " +
-                    "Add `companion object { val previewSamples: Sequence<${sealedDecl.simpleName.asString()}> = … }` " +
+                    "Add `companion object { val previewSamples: Sequence<${sealedDecl.simpleName.asString()}> get() = … }` " +
                     "to narrow, or raise `@PoseSetup(maxPreviewsPerComposable = …)`.",
             )
             if (options.strict) return emptyList()
@@ -356,7 +356,7 @@ public class PreviewPlanner(
                     "`$simple`: parameter `${reason.paramPath}: ${reason.typeFqn}` has no fake strategy " +
                         "(tried ${reason.triedTiers.joinToString()}). " +
                         "Fix — either " +
-                        "(1) add `companion object { val previewSamples: Sequence<$typeSimple> = … }` to $typeSimple, " +
+                        "(1) add `companion object { val previewSamples: Sequence<$typeSimple> get() = … }` to $typeSimple, " +
                         "(2) bind a provider with `@Pose(providers = [${typeSimple}Samples::class])`, or " +
                         "(3) hand-write a @Preview for `$simple`. " +
                         "Docs: ${DiagnosticCode.PG001.docsUrl}"
