@@ -251,6 +251,18 @@ public class SampleResolver(
                 val bInner = (resolveType(b, ctx.child(".second")) as? SampleExpr.Emit)?.code ?: return null
                 return SampleExpr.Emit(CodeBlock.of("%L to %L", aInner, bInner), 2, "pair")
             }
+            // Must be handled here for the same reason as Pair: the type arguments are
+            // known at the use site, but Triple's own constructor takes type *variables*,
+            // so falling through to structural synthesis refuses on `A`.
+            "kotlin.Triple" -> {
+                val a = type.arguments.getOrNull(0)?.type?.resolve() ?: return null
+                val b = type.arguments.getOrNull(1)?.type?.resolve() ?: return null
+                val c = type.arguments.getOrNull(2)?.type?.resolve() ?: return null
+                val aInner = (resolveType(a, ctx.child(".first")) as? SampleExpr.Emit)?.code ?: return null
+                val bInner = (resolveType(b, ctx.child(".second")) as? SampleExpr.Emit)?.code ?: return null
+                val cInner = (resolveType(c, ctx.child(".third")) as? SampleExpr.Emit)?.code ?: return null
+                return SampleExpr.Emit(CodeBlock.of("Triple(%L, %L, %L)", aInner, bInner, cInner), 2, "triple")
+            }
         }
         return null
     }

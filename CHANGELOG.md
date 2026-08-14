@@ -24,6 +24,16 @@ All notable changes to Pose are documented here. Follows [Keep a Changelog](http
   `PreviewParameterProvider` classes are all named somewhere in your own source, so
   Kotlin already dirties the composable when they change.
 
+- **`Triple` parameters no longer refuse with `PG001`.** `Triple` was listed in the
+  planner's collection-like set - so it never got a `PreviewParameterProvider` slot - but
+  the resolver had no branch for it, only for `Pair`. It fell through to structural
+  synthesis, which walks `Triple`'s own constructor and finds the type *variables*
+  `A`/`B`/`C` rather than the arguments supplied at the use site, then refused on
+  `.first`. `Triple<Int, Int, Int>` now resolves to `Triple(0, 0, 0)`, each slot going
+  through the ordinary ladder so nested types recurse as they do everywhere else.
+
+  Reported in [#1](https://github.com/AkshayChordiya/Pose/issues/1).
+
 ## [0.6.2] - Don't build preview data in production
 
 ### Changed
