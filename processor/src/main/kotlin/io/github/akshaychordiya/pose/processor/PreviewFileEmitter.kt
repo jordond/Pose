@@ -94,9 +94,9 @@ public class PreviewFileEmitter(
             .addAnnotation(ClassName("androidx.compose.runtime", "Composable"))
 
         if (plan.annotation.previewAnnotationFqns.isEmpty()) {
-            // Default: light + dark, both with showBackground = true. Emitted as two
-            // explicit @Preview stampings rather than a wrapper multipreview class so
-            // the annotations JAR stays free of any Compose dependency.
+            // Default: light + dark. Emitted as two explicit @Preview stampings rather
+            // than a wrapper multipreview class so the annotations JAR stays free of any
+            // Compose dependency.
             builder.addAnnotation(defaultPreviewAnn(name = "Light", nightMode = false))
             builder.addAnnotation(defaultPreviewAnn(name = "Dark", nightMode = true))
         } else {
@@ -253,12 +253,16 @@ public class PreviewFileEmitter(
      * `UI_MODE_NIGHT_NO` = 0x10 (16); `UI_MODE_NIGHT_YES` = 0x20 (32). We inline the
      * numeric constants rather than importing `android.content.res.Configuration` so
      * the emitted file has one fewer import — cleaner grep target.
+     *
+     * `showBackground` is omitted entirely rather than written as `false` when
+     * disabled: `false` is already the `@Preview` default, so emitting it would be
+     * noise in every generated function.
      */
     private fun defaultPreviewAnn(name: String, nightMode: Boolean): AnnotationSpec =
         AnnotationSpec.builder(ClassName("androidx.compose.ui.tooling.preview", "Preview"))
             .addMember("name = %S", name)
             .addMember("uiMode = %L", if (nightMode) 0x20 else 0x10)
-            .addMember("showBackground = true")
+            .apply { if (options.showBackground) addMember("showBackground = true") }
             .build()
 
     private fun fqnToClassName(fqn: String): ClassName {

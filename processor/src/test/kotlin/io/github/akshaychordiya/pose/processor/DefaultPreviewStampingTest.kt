@@ -68,6 +68,38 @@ class DefaultPreviewStampingTest {
     }
 
     @Test
+    fun `PoseSetup showBackground false drops it from the default pair`() {
+        val source = SourceFile.kotlin(
+            "NoBackground.kt",
+            """
+            package sample
+
+            import androidx.compose.runtime.Composable
+            import io.github.akshaychordiya.pose.Pose
+            import io.github.akshaychordiya.pose.PoseConfig
+            import io.github.akshaychordiya.pose.PoseSetup
+
+            @PoseSetup(showBackground = false)
+            internal object SamplePose : PoseConfig
+
+            @Composable
+            @Pose
+            fun NoBackgroundPreview() { }
+            """.trimIndent()
+        )
+        val result = CompileHarness.compile(listOf(source))
+
+        assertThat(result.exitCode).isEqualTo(KotlinCompilation.ExitCode.OK)
+        val generated = result.generatedFile("NoBackground__Preview.kt").readText()
+
+        // The light/dark pair is still stamped — only the background member goes.
+        assertThat(generated).contains("uiMode = 16")
+        assertThat(generated).contains("uiMode = 32")
+        // Omitted rather than written as `false`, which is already @Preview's default.
+        assertThat(generated).doesNotContain("showBackground")
+    }
+
+    @Test
     fun `previews list with multiple annotations stamps all of them`() {
         val source = SourceFile.kotlin(
             "Multi.kt",

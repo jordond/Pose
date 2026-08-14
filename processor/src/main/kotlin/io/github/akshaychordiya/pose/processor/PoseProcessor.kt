@@ -63,6 +63,7 @@ public class PoseProcessor(
                     maxPreviewsPerComposable = it.args.maxPreviewsPerComposable,
                     maxDepth = it.args.maxDepth,
                     collectionSize = it.args.collectionSize,
+                    showBackground = it.args.showBackground,
                 )
             )
         } ?: this.options

@@ -60,10 +60,10 @@ public data class PreviewAnnotationArgs(
     val wrapInTheme: Boolean,
     /**
      * FQNs of every KClass entry in `previews[]`. When empty, the emitter stamps
-     * Pose's default pair: `@Preview(uiMode = UI_MODE_NIGHT_NO,  showBackground = true)`
-     * and `@Preview(uiMode = UI_MODE_NIGHT_YES, showBackground = true)`.
-     * We use `showBackground = true` because the default transparent preview reads
-     * as broken against Studio's dark IDE theme.
+     * Pose's default pair: `@Preview(uiMode = UI_MODE_NIGHT_NO)` and
+     * `@Preview(uiMode = UI_MODE_NIGHT_YES)`, each carrying `showBackground = true`
+     * unless `@PoseSetup(showBackground = false)` turns it off.
+     * The default transparent preview reads as broken against Studio's dark IDE theme.
      */
     val previewAnnotationFqns: List<String>,
     /**

@@ -48,8 +48,9 @@ public annotation class Pose(
      * `PreviewFontScale`, `PreviewScreenSizes` all work; project-local multipreview
      * annotations work with no plugin support needed.
      *
-     * When empty (the default), the processor stamps its own light + dark pair
-     * with `showBackground = true` on each.
+     * When empty (the default), the processor stamps its own light + dark pair,
+     * with `showBackground = true` unless `@PoseSetup(showBackground = false)`
+     * turns it off.
      */
     val previews: Array<KClass<out Annotation>> = [],
 

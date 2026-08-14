@@ -53,6 +53,7 @@ class OptionsTest {
                 maxPreviewsPerComposable = 16,
                 maxDepth = 12,
                 collectionSize = 5,
+                showBackground = false,
             )
         )
         assertThat(merged.setupObjectFqn).isEqualTo("com.example.AppPose")
@@ -62,6 +63,7 @@ class OptionsTest {
         assertThat(merged.maxPreviewsPerComposable).isEqualTo(16)
         assertThat(merged.maxDepth).isEqualTo(12)
         assertThat(merged.collectionSize).isEqualTo(5)
+        assertThat(merged.showBackground).isFalse()
     }
 
     @Test
@@ -90,5 +92,6 @@ class OptionsTest {
         maxPreviewsPerComposable = 8,
         maxDepth = 8,
         collectionSize = 2,
+        showBackground = true,
     )
 }

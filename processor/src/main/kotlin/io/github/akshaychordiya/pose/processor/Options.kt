@@ -45,6 +45,13 @@ public data class Options(
     val setupOverridesTheme: Boolean = false,
     /** Whether that object overrode `PoseConfig.Wrapper`. */
     val setupOverridesWrapper: Boolean = false,
+    /**
+     * Whether the default light/dark pair stamps `showBackground = true`.
+     *
+     * Only consulted when the plan has no explicit preview annotations - once the
+     * user supplies their own, those decide everything.
+     */
+    val showBackground: Boolean = true,
 ) {
     /** Layers a discovered `@PoseSetup` object over the KSP-sourced options. */
     public fun mergedWith(setup: PoseSetupOverrides): Options = copy(
@@ -58,6 +65,7 @@ public data class Options(
         setupObjectFqn = setup.objectFqn,
         setupOverridesTheme = setup.overridesTheme,
         setupOverridesWrapper = setup.overridesWrapper,
+        showBackground = setup.showBackground,
     )
 
     /** Flattened view of a `@PoseSetup` object, so [Options] needn't depend on the resolver. */
@@ -70,6 +78,7 @@ public data class Options(
         val maxPreviewsPerComposable: Int,
         val maxDepth: Int,
         val collectionSize: Int,
+        val showBackground: Boolean,
     )
 
     public companion object {

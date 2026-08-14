@@ -364,6 +364,7 @@ Everything lives on the module's `@PoseSetup` object:
 | `maxPreviewsPerComposable` | `8` | Cap on previews per composable |
 | `maxDepth` | `8` | Cap on structural-synthesis recursion |
 | `collectionSize` | `2` | Elements emitted for `List` / `Set` |
+| `showBackground` | `true` | `showBackground = true` on the default light/dark pair. Ignored when `previews` is set |
 
 ### KSP options
 

@@ -137,4 +137,17 @@ public annotation class PoseSetup(
      * looks right with more rows — pagination, grids, "and N more" affordances.
      */
     val collectionSize: Int = 2,
+
+    /**
+     * Whether Pose's default light/dark pair sets `showBackground = true`.
+     *
+     * On by default, because a composable that paints nothing of its own renders
+     * transparent, which against Studio's dark chrome reads as broken.
+     *
+     * Turn it off when whatever you render already paints its own background and
+     * you'd rather the preview panel didn't put an opaque layer underneath it.
+     *
+     * Ignored when [previews] is set — your own annotations decide everything.
+     */
+    val showBackground: Boolean = true,
 )

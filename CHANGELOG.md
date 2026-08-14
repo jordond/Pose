@@ -34,6 +34,10 @@ All notable changes to Pose are documented here. Follows [Keep a Changelog](http
 
   Reported in [#1](https://github.com/AkshayChordiya/Pose/issues/1).
 
+### Added
+
+- **`@PoseSetup(showBackground = …)`** - controls whether Pose's default light/dark pair stamps `showBackground = true`. Still on by default, since a composable that paints nothing of its own renders transparent and reads as broken against Studio's dark chrome. Turn it off when what you render already paints its own background. Ignored when `previews` is set, your own annotations decide everything then. Emitted as an omission rather than `showBackground = false`, which is already `@Preview`'s default.
+
 ## [0.6.2] - Don't build preview data in production
 
 ### Changed

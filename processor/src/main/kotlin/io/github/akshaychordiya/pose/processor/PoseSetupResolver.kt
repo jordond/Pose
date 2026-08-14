@@ -41,6 +41,7 @@ internal data class PoseSetup(
         val maxPreviewsPerComposable: Int,
         val maxDepth: Int,
         val collectionSize: Int,
+        val showBackground: Boolean,
     )
 }
 
@@ -152,6 +153,7 @@ internal object PoseSetupResolver {
             maxPreviewsPerComposable = arg<Int>("maxPreviewsPerComposable") ?: 8,
             maxDepth = arg<Int>("maxDepth") ?: 8,
             collectionSize = arg<Int>("collectionSize") ?: 2,
+            showBackground = arg<Boolean>("showBackground") ?: true,
         )
     }
 
