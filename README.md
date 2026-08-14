@@ -52,8 +52,8 @@ Compose's preview ecosystem is great at **consuming** previews (Showkase, Papara
 plugins { id("com.google.devtools.ksp") }
 
 dependencies {
-    implementation("io.github.akshaychordiya.pose:annotations:0.6.2")
-    kspDebug("io.github.akshaychordiya.pose:processor:0.6.2")
+    implementation("io.github.akshaychordiya.pose:annotations:0.6.3")
+    kspDebug("io.github.akshaychordiya.pose:processor:0.6.3")
 
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")

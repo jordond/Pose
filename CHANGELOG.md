@@ -2,7 +2,7 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
-## [Unreleased] - Keep the theme through incremental builds
+## [0.6.3] - Keep the theme through incremental builds
 
 ### Fixed
 
