@@ -1,7 +1,7 @@
 package io.github.akshaychordiya.pose.sample
 
-import android.content.res.Configuration.UI_MODE_NIGHT_NO
-import android.content.res.Configuration.UI_MODE_NIGHT_YES
+import androidx.compose.ui.tooling.preview.AndroidUiModes.UI_MODE_NIGHT_NO
+import androidx.compose.ui.tooling.preview.AndroidUiModes.UI_MODE_NIGHT_YES
 import androidx.compose.ui.tooling.preview.Preview
 
 /**
@@ -11,6 +11,9 @@ import androidx.compose.ui.tooling.preview.Preview
  * into one annotation and reference it from `@Pose(previews = [AppPreviews::class])`.
  * Adding a new dimension later is a one-line edit here that ripples through
  * every generated preview.
+ *
+ * `UI_MODE_NIGHT_*` comes from `AndroidUiModes`, not `android.content.res.Configuration` -
+ * same constants, but declared in `commonMain` so this compiles for every target.
  */
 @Preview(name = "Light",     uiMode = UI_MODE_NIGHT_NO,  showBackground = true)
 @Preview(name = "Dark",      uiMode = UI_MODE_NIGHT_YES, showBackground = true)

@@ -1,49 +1,70 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+
 plugins {
-    // AGP 9.0+ has built-in Kotlin support — no need to apply kotlin.android explicitly.
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.multiplatform)
+    // Builds an Android library, not an APK - the runnable app is `:sample-android`.
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.ksp)
 }
 
-android {
-    namespace = "io.github.akshaychordiya.pose.sample"
-    compileSdk = 37
+kotlin {
+    jvmToolchain(17)
 
-    defaultConfig {
-        applicationId = "io.github.akshaychordiya.pose.sample"
+    android {
+        namespace = "io.github.akshaychordiya.pose.sample"
+        compileSdk = 37
         minSdk = 24
-        targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
     }
 
-    buildFeatures {
-        compose = true
-    }
+    jvm()
+    iosArm64()
+    iosSimulatorArm64()
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-}
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs { browser() }
 
-ksp {
-    // Theme + flags now live in SamplePose.kt as type-safe Kotlin. Nothing needed here.
-    // The legacy `arg("pose.themeFqName", "…")` still works as a fallback.
+    sourceSets {
+        commonMain {
+            // KSP writes here; it is not a source root by default.
+            kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+
+            dependencies {
+                implementation(project(":annotations"))
+
+                implementation(libs.compose.mpp.runtime)
+                implementation(libs.compose.mpp.ui)
+                implementation(libs.compose.mpp.foundation)
+                implementation(libs.compose.mpp.material3)
+                implementation(libs.compose.mpp.ui.tooling.preview)
+                // `WellKnownTypesCard` takes a StateFlow parameter.
+                implementation(libs.kotlinx.coroutines.core)
+            }
+        }
+    }
 }
 
 dependencies {
-    implementation(project(":annotations"))
-    kspDebug(project(":processor"))
+    // Only the common metadata compilation is processed. Adding per-target KSP
+    // configurations (kspAndroid, kspJvm, …) would re-emit the same previews once per
+    // target and fail with duplicate declarations.
+    add("kspCommonMainMetadata", project(":processor"))
 
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.compose.foundation)
-    implementation(libs.compose.material3)
-    debugImplementation(libs.compose.ui.tooling)
+    // Studio's preview renderer. The KMP Android plugin is single-variant, so there is
+    // no `debugImplementation` to hang this off — `androidRuntimeClasspath` is its
+    // replacement.
+    androidRuntimeClasspath(libs.compose.mpp.ui.tooling)
+}
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
+// Every other compilation, and every per-target KSP task, reads the generated sources,
+// so all of them must wait for them. Without this, `compileKotlinJvm` races the metadata
+// KSP task and sees an empty source dir on a clean build. The per-target KSP tasks need
+// naming separately - `KspAATask` is not a `KotlinCompilationTask`.
+tasks.matching {
+    it.name != "kspCommonMainKotlinMetadata" &&
+        (it is KotlinCompilationTask<*> || it.name.startsWith("ksp"))
+}.configureEach {
+    dependsOn("kspCommonMainKotlinMetadata")
 }

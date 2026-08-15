@@ -1,5 +1,7 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.multiplatform)
     // `PoseConfig` declares @Composable members, so this module's bytecode must be
     // Compose-compatible, but we use it compilation level.
     alias(libs.plugins.compose.compiler)
@@ -10,15 +12,28 @@ plugins {
 kotlin {
     explicitApi()
     jvmToolchain(17)
-}
 
-java {
-    withSourcesJar()
-}
+    jvm()
 
-dependencies {
-    compileOnly(platform(libs.compose.bom))
-    compileOnly(libs.compose.runtime)
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
+
+    js {
+        browser()
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            // compileOnly, the markers must not drag Compose onto a consumer's classpath.
+            compileOnly(libs.compose.mpp.runtime)
+        }
+    }
 }
 
 mavenPublishing {
@@ -29,6 +44,6 @@ mavenPublishing {
     )
     pom {
         name.set("Pose Annotations")
-        description.set("Marker annotations (@Pose, @PoseProvider, @PoseIgnore) for the Pose KSP processor. Pure Kotlin JVM, no Compose dependency.")
+        description.set("Marker annotations (@Pose, @PoseSample, @PoseIgnore) and the PoseConfig/@PoseSetup config surface for the Pose KSP processor. Kotlin Multiplatform, no Compose dependency.")
     }
 }

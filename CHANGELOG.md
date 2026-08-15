@@ -2,6 +2,54 @@
 
 All notable changes to Pose are documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic versioning.
 
+## [Unreleased] - Compose Multiplatform
+
+### Added
+
+- **Compose Multiplatform support for `commonMain` composables.** `@Pose` now works on
+  composables in a KMP `commonMain` source set, processed via `kspCommonMainMetadata`.
+
+  No new dialect, flag or annotation: since Compose Multiplatform **1.11**,
+  `org.jetbrains.compose.ui:ui-tooling-preview` publishes `@Preview`, `@PreviewParameter`,
+  `PreviewParameterProvider` and the `@PreviewLightDark` family into `commonMain` under the
+  same **`androidx.compose.ui.tooling.preview`** package names Jetpack Compose uses, and
+  `LocalInspectionMode` is common too. A generated preview is byte-identical on both
+  platforms, so the emitter is unchanged.
+
+### Changed
+
+- **`sample-app` is now a Compose Multiplatform module.** Its showcase composables moved to
+  `commonMain`, are processed once via `kspCommonMainMetadata`, and the generated previews
+  are compiled for Android, desktop (JVM), iosArm64, iosSimulatorArm64 and wasmJs. One
+  sample now proves both platforms rather than two proving one each.
+
+  Consequences worth knowing:
+
+  - It applies `com.android.kotlin.multiplatform.library` instead of
+    `com.android.application`, because AGP 9 made the application and library plugins
+    incompatible with Kotlin Multiplatform in the same module. The Android target is
+    unaffected — generated previews still compile into it.
+  - **`sample-android`** is a new module holding the Android entry point
+    (`MainActivity`, `AndroidManifest.xml`, APK) that AGP 9 no longer allows in a KMP
+    module. It depends on `:sample-app` and contains no Pose-specific code.
+  - `./gradlew :sample-app:assembleDebug` no longer exists. Use
+    `./gradlew :sample-app:kspCommonMainKotlinMetadata` to generate,
+    `./gradlew :sample-app:build` to compile every target, and
+    `./gradlew :sample-android:assembleDebug` for the APK.
+
+  `AppPreviews` now imports `UI_MODE_NIGHT_*` from
+  `androidx.compose.ui.tooling.preview.AndroidUiModes` rather than
+  `android.content.res.Configuration` — identical constants, declared in `commonMain`.
+
+- **`annotations` is now published as a Kotlin Multiplatform artifact** (jvm, iosArm64,
+  iosSimulatorArm64, macosArm64, js, wasmJs) instead of Kotlin/JVM. This is what makes
+  `commonMain` able to depend on it at all - a JVM-only artifact cannot be resolved from a
+  common source set, which is why previous "CMP works" guidance only ever held for
+  platform-specific source sets.
+
+  Android and JVM consumers are unaffected: they resolve the `jvm` variant through Gradle
+  module metadata, and the published POM still declares nothing but `kotlin-stdlib`.
+
 ## [0.6.3] - Keep the theme through incremental builds
 
 ### Fixed

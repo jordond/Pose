@@ -75,10 +75,13 @@ internal object AppPose : PoseConfig {
 
 Pose never learns your theme's name - it emits `AppPose.Theme { … }` and lets the compiler resolve the rest. Rename `AppTheme` and the IDE refactors this file with everything else.
 
+The snippet above is the Android setup. For Compose Multiplatform, see [Platforms](#compose-multiplatform-).
+
 **Requirements**
 
 - Kotlin **2.0+**, KSP **2.x**
 - AGP **8.2+**, Compose BOM **2024.02+**
+- Compose Multiplatform **1.11+**
 - JDK **17+**
 
 Tested on Kotlin 2.4.x · KSP 2.3.x · AGP 9.2.x.
@@ -379,8 +382,85 @@ Anything else starting with `pose.` warns via `PG023` with a "did you mean" sugg
 
 ## Platforms 🌍
 
-- **Android** - first-class, tested end-to-end via the sample-app.
-- **Kotlin Multiplatform / Compose Multiplatform** - verified working on real CMP + KMP projects. `androidx.compose.ui.tooling.preview.Preview` unified across Android and CMP, so Pose's emission works on both. Wire the processor into the appropriate `ksp<Target>Main` configuration in your module's `build.gradle.kts`.
+[`sample-app`](sample-app) is a Compose Multiplatform module whose `commonMain`
+composables are processed once and compiled for Android, desktop (JVM), iOS and wasm.
+[`sample-android`](sample-android) wraps it in a runnable Android app.
+
+- **Android** - first-class.
+- **Compose Multiplatform** - `commonMain` composables, all targets.
+
+### Compose Multiplatform 🧩
+
+There is no multiplatform dialect to opt into - a generated preview is byte-identical
+whether it lands in an Android variant or in `commonMain`. Since Compose Multiplatform
+**1.11**, `org.jetbrains.compose.ui:ui-tooling-preview` publishes `@Preview`,
+`@PreviewParameter`, `PreviewParameterProvider` and the `@PreviewLightDark` family into
+`commonMain` under the same **`androidx.compose.ui.tooling.preview`** names Jetpack Compose
+uses, and `LocalInspectionMode` is common too.
+
+> The older `org.jetbrains.compose.ui.tooling.preview.*` package (from
+> `compose.components.uiToolingPreview`) is deprecated upstream in favour of the androidx
+> names. Pose targets the current ones.
+
+Put `@Pose` on composables in `commonMain`, then run KSP once over the common metadata
+compilation:
+
+```kotlin
+plugins {
+    kotlin("multiplatform")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
+    id("com.google.devtools.ksp")
+}
+
+kotlin {
+    sourceSets {
+        commonMain {
+            // KSP writes here; it is not a source root by default.
+            kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
+
+            dependencies {
+                implementation("io.github.akshaychordiya.pose:annotations:0.6.3")
+                implementation("org.jetbrains.compose.runtime:runtime:1.11.1")
+                implementation("org.jetbrains.compose.ui:ui-tooling-preview:1.11.1")
+            }
+        }
+    }
+}
+
+dependencies {
+    add("kspCommonMainMetadata", "io.github.akshaychordiya.pose:processor:0.6.3")
+}
+
+// Every other compilation, and every per-target KSP task, reads the generated sources.
+// Without this they race the metadata KSP task and see an empty source dir.
+tasks.matching {
+    it.name != "kspCommonMainKotlinMetadata" &&
+        (it is org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*> || it.name.startsWith("ksp"))
+}.configureEach {
+    dependsOn("kspCommonMainKotlinMetadata")
+}
+```
+
+**Use `kspCommonMainMetadata` only.** Adding per-target configurations (`kspJvm`,
+`kspAndroid`, `kspIosArm64`, …) alongside it re-emits the same previews once per target and
+fails the build with duplicate declarations. Previews generated from `commonMain` are
+already compiled into every target.
+
+Your `@PoseSetup` config object goes in `commonMain` like any other common code -
+`PoseConfig` is published as Kotlin Multiplatform metadata, so it resolves there:
+
+```kotlin
+@PoseSetup
+internal object AppPose : PoseConfig {
+    @Composable
+    override fun Theme(content: @Composable () -> Unit) = AppTheme(content)
+}
+```
+
+Composables that live in a platform source set rather than `commonMain` are supported the
+same way - point the processor at that source set's KSP configuration (`kspAndroid`,
+`kspJvm`, …) instead.
 
 ## Limitations 🚧
 
