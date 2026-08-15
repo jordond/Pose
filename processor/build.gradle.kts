@@ -17,7 +17,7 @@ kotlin {
 
 mavenPublishing {
     coordinates(
-        groupId = "io.github.akshaychordiya.pose",
+        groupId = project.group.toString(),
         artifactId = "processor",
         version = project.version.toString(),
     )
